@@ -338,12 +338,14 @@
       read.getBalance(S.wallet.addr),
       mcfl.balanceOf(S.wallet.addr),
       S.info.token.toLowerCase() === CFG.MCFL.toLowerCase() ? Promise.resolve(null)
-        : new ethers.Contract(S.info.token, ['function balanceOf(address) view returns (uint256)'], read).balanceOf(S.wallet.addr)
+        : new ethers.Contract(S.info.token, ['function balanceOf(address) view returns (uint256)'], read).balanceOf(S.wallet.addr),
+      new ethers.Contract(CFG.WETH, ['function balanceOf(address) view returns (uint256)'], read).balanceOf(S.wallet.addr)
     ]).then(function (r) {
       return {
         eth: parseFloat(ethers.utils.formatEther(r[0])),
         mcfl: parseFloat(ethers.utils.formatEther(r[1])),
-        token: r[2] == null ? parseFloat(ethers.utils.formatEther(r[1])) : parseFloat(ethers.utils.formatUnits(r[2], S.info.decimals))
+        token: r[2] == null ? parseFloat(ethers.utils.formatEther(r[1])) : parseFloat(ethers.utils.formatUnits(r[2], S.info.decimals)),
+        weth: parseFloat(ethers.utils.formatEther(r[3]))
       };
     });
   }
@@ -450,7 +452,8 @@
   /* ---------------- move: straddle ---------------- */
   function renderStraddle(quote, bal) {
     var gasReserve = 0.0015;
-    var maxEth = Math.max(0, bal.eth - gasReserve - (isOperator() ? 0 : (bal.mcfl >= quote.mcflAmountF ? 0 : quote.ethInF)));
+    var weth = bal.weth || 0;
+    var maxEth = Math.max(0, bal.eth - gasReserve - (isOperator() ? 0 : (bal.mcfl >= quote.mcflAmountF ? 0 : quote.ethInF))) + weth;
     var defTok = bal.token > 0 ? bal.token * 0.5 : 0;
     var defEth = Math.min(maxEth, maxEth * 0.5);
     var band = priceMultAtTicks(S.info.spacing * 3) * 100;
@@ -460,7 +463,7 @@
       '<div class="field"><label>' + esc(S.info.symbol) + ' to commit</label><input id="amtTok" inputmode="decimal" value="' + (defTok > 0 ? Math.floor(defTok) : '') + '" data-testid="input-token-amount">' +
       '<div class="hint"><span>Balance: ' + fmtTok(bal.token) + ' ' + esc(S.info.symbol) + '</span><button id="maxTok">MAX</button></div></div>' +
       '<div class="field"><label>ETH to commit</label><input id="amtEth" inputmode="decimal" value="' + (defEth > 0.0005 ? defEth.toFixed(4) : '0') + '" data-testid="input-eth-amount">' +
-      '<div class="hint"><span>Balance: ' + bal.eth.toFixed(4) + ' ETH</span><button id="maxEth2">MAX</button></div></div>' +
+      '<div class="hint"><span>Balance: ' + bal.eth.toFixed(4) + ' ETH' + (weth > 0 ? ' + ' + weth.toFixed(4) + ' WETH (counted)' : '') + '</span><button id="maxEth2">MAX</button></div></div>' +
       feeSection(quote, bal) +
       '<div class="preview" id="pv"></div>' +
       '<div id="mErr"></div>' +
@@ -476,18 +479,22 @@
       var ve = parseFloat($('amtEth').value) || 0;
       if (vt <= 0 && ve <= 0) { $('pv').innerHTML = '<div class="prow"><span class="k">Enter amounts to preview.</span></div>'; $('goBtn').disabled = true; return; }
       try {
-        var plan = L.planStraddle(S.state, String(vt || 0), String(ve || 0), S.wallet.addr);
+        var plan = L.planStraddle(S.state, String(vt || 0), String(ve || 0), S.wallet.addr, undefined, weth.toFixed(18));
         var st = S.state;
+        var bandLabel = plan.summary.oneSided
+          ? '<div class="prow"><span class="k">Shape</span><span class="v">One-sided ' + esc(plan.summary.oneSided) + ' band next to spot</span></div>' +
+            '<div class="prow"><span class="k" style="font-size:var(--text-xs)">You committed one token, so this mints a tight band adjacent to the current price instead of a straddle. Add both tokens for a true straddle.</span></div>'
+          : '<div class="prow"><span class="k">Band around price</span><span class="v">±' + band.toFixed(0) + '%</span></div>';
         $('pv').innerHTML =
-          '<div class="prow"><span class="k">Band around price</span><span class="v">±' + band.toFixed(0) + '%</span></div>' +
+          bandLabel +
           '<div class="prow"><span class="k">' + esc(S.info.symbol) + ' side</span><span class="v">' + fmtTok(vt) + ' ≈ ' + fmtUsd(vt * (st.priceUsd || 0)) + '</span></div>' +
           '<div class="prow"><span class="k">ETH side</span><span class="v">' + ve.toFixed(4) + ' ETH ≈ ' + fmtUsd(ve * (st.ethUsd || 0)) + '</span></div>' +
           '<div class="prow"><span class="k">Transactions you will sign</span><span class="v">' + (plan.txs.length + (isOperator() ? 0 : 1)) + '</span></div>' +
           '<div class="prow"><span class="k" style="font-size:var(--text-xs)">The pool takes what the math allows; any unused WETH stays in your wallet as WETH.</span></div>';
         var bad = null;
         if (vt > bal.token) bad = 'You only hold ' + fmtTok(bal.token) + ' ' + S.info.symbol + '.';
-        var need = ve + feeEthCost(quote) + 0.001;
-        if (need > bal.eth) bad = 'You need ~' + need.toFixed(4) + ' ETH (amount + fee + gas) but hold ' + bal.eth.toFixed(4) + '.';
+        var need = Math.max(0, ve - weth) + feeEthCost(quote) + 0.001;
+        if (need > bal.eth) bad = 'You need ~' + need.toFixed(4) + ' ETH (amount + fee + gas) but hold ' + bal.eth.toFixed(4) + (weth > 0 ? ' (your ' + weth.toFixed(4) + ' WETH is already counted)' : '') + '.';
         if (bad) { $('mErr').innerHTML = '<div class="banner err">' + esc(bad) + '</div>'; $('goBtn').disabled = true; }
         else { $('mErr').innerHTML = ''; $('goBtn').disabled = false; }
       } catch (e) { $('pv').innerHTML = '<div class="prow"><span class="k">' + esc(e.message) + '</span></div>'; $('goBtn').disabled = true; }
@@ -500,7 +507,7 @@
     $('goBtn').addEventListener('click', function () {
       var vt = parseFloat($('amtTok').value) || 0;
       var ve = parseFloat($('amtEth').value) || 0;
-      var plan = L.planStraddle(S.state, String(vt), String(ve), S.wallet.addr);
+      var plan = L.planStraddle(S.state, String(vt), String(ve), S.wallet.addr, undefined, weth.toFixed(18));
       execute('Tighten spread — ' + S.info.symbol, feeTxs(quote).concat(plan.txs));
     });
   }

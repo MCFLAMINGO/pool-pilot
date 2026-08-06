@@ -348,17 +348,37 @@
   }
 
   // Move 2: tighten the spread — straddle around spot using wallet balances
-  function planStraddle(state, tokenAmountStr, ethAmountStr, walletAddr, widthTicksEachSide) {
+  function planStraddle(state, tokenAmountStr, ethAmountStr, walletAddr, widthTicksEachSide, wethBalStr) {
     var info = state.info;
     var sp = info.spacing;
     var w = widthTicksEachSide || sp * 3;
     w = Math.max(sp, Math.round(w / sp) * sp);
-    var lo = alignTick(state.tick - w, sp, false);
-    var hi = alignTick(state.tick + w, sp, true);
-    if (hi <= state.tick) hi = alignTick(state.tick + sp, sp, true);
-    if (lo >= state.tick) lo = alignTick(state.tick - sp, sp, false);
     var tokenAmt = ethers.utils.parseUnits(tokenAmountStr, info.decimals);
     var ethAmt = ethers.utils.parseEther(ethAmountStr);
+    var hasToken = tokenAmt.gt(0), hasEth = ethAmt.gt(0);
+    if (!hasToken && !hasEth) throw new Error('Enter an amount on at least one side.');
+    var lo, hi, oneSided = null;
+    if (hasToken && hasEth) {
+      // True straddle: range spans the current price, both tokens deposited.
+      lo = alignTick(state.tick - w, sp, false);
+      hi = alignTick(state.tick + w, sp, true);
+      if (hi <= state.tick) hi = alignTick(state.tick + sp, sp, true);
+      if (lo >= state.tick) lo = alignTick(state.tick - sp, sp, false);
+    } else {
+      // One token only: a range that spans the price would compute ZERO liquidity
+      // and revert on-chain. Build a valid one-sided band adjacent to spot instead.
+      // Which side holds which token (Uniswap v3): tick < lower = all token0,
+      // tick >= upper = all token1.
+      var tokenOnlySide = hasToken ? (info.tokenIsToken1 ? 'below' : 'above') : (info.tokenIsToken1 ? 'above' : 'below');
+      if (tokenOnlySide === 'below') {
+        hi = alignTick(state.tick, sp, false);
+        lo = hi - w;
+      } else {
+        lo = alignTick(state.tick + sp, sp, true);
+        hi = lo + w;
+      }
+      oneSided = hasToken ? info.symbol : 'ETH';
+    }
     var amount0 = info.tokenIsToken1 ? ethAmt : tokenAmt;
     var amount1 = info.tokenIsToken1 ? tokenAmt : ethAmt;
     // Security (MEV): for an in-range mint the pool price at execution decides how much of
@@ -376,6 +396,11 @@
       var r1 = (L * (sqP - sqL)) / a1f;
       m0 = amount0.mul(Math.max(0, Math.floor(r0 * 800))).div(1000);
       m1 = amount1.mul(Math.max(0, Math.floor(r1 * 800))).div(1000);
+    } else {
+      // Out-of-range one-sided mint: the pool takes (almost exactly) the full amount
+      // regardless of price, so 95% floors are safe and still block MEV games.
+      if (a0f > 0) m0 = amount0.mul(950).div(1000);
+      if (a1f > 0) m1 = amount1.mul(950).div(1000);
     }
     var mintParams = {
       token0: info.token0, token1: info.token1, fee: info.fee,
@@ -385,15 +410,25 @@
       recipient: walletAddr, deadline: deadline()
     };
     var txs = [];
-    if (parseFloat(ethAmountStr) > 0) {
-      txs.push({ label: 'Wrap ' + ethAmountStr + ' ETH', to: CFG.WETH, value: ethAmt.toHexString(), data: iWETH.encodeFunctionData('deposit', []) });
+    if (hasEth) {
+      // Credit WETH already sitting in the wallet — wrap only the shortfall.
+      var wethBal = ethers.utils.parseEther(wethBalStr || '0');
+      var wrapAmt = ethAmt.gt(wethBal) ? ethAmt.sub(wethBal) : ethers.constants.Zero;
+      if (wrapAmt.gt(0)) {
+        txs.push({ label: 'Wrap ' + ethers.utils.formatEther(wrapAmt) + ' ETH (you already hold ' + ethers.utils.formatEther(wethBal) + ' WETH)', to: CFG.WETH, value: wrapAmt.toHexString(), data: iWETH.encodeFunctionData('deposit', []) });
+      }
       txs.push({ label: 'Approve WETH', to: CFG.WETH, value: '0x0', data: iERC20.encodeFunctionData('approve', [CFG.NPM, ethAmt]) });
     }
-    txs.push({ label: 'Approve ' + info.symbol, to: info.token, value: '0x0', data: iERC20.encodeFunctionData('approve', [CFG.NPM, tokenAmt]) });
-    txs.push({ label: 'Mint the straddle (both sides of spot)', to: CFG.NPM, value: '0x0', data: iNPM.encodeFunctionData('mint', [mintParams]), mintParams: mintParams });
+    if (hasToken) {
+      txs.push({ label: 'Approve ' + info.symbol, to: info.token, value: '0x0', data: iERC20.encodeFunctionData('approve', [CFG.NPM, tokenAmt]) });
+    }
+    var mintLabel = oneSided
+      ? 'Mint a one-sided ' + oneSided + ' band next to spot'
+      : 'Mint the straddle (both sides of spot)';
+    txs.push({ label: mintLabel, to: CFG.NPM, value: '0x0', data: iNPM.encodeFunctionData('mint', [mintParams]), mintParams: mintParams });
     return {
       kind: 'straddle',
-      summary: { range: [lo, hi], widthTicks: w, tokenIn: parseFloat(tokenAmountStr), ethIn: parseFloat(ethAmountStr) },
+      summary: { range: [lo, hi], widthTicks: w, tokenIn: parseFloat(tokenAmountStr), ethIn: parseFloat(ethAmountStr), oneSided: oneSided },
       txs: txs
     };
   }
@@ -512,7 +547,15 @@
       if (bothSides && (tick <= lo || tick >= hi)) {
         return { ok: false, reason: 'The price has moved outside your planned range — close this and rebuild the plan so it re-centers on the live price.' };
       }
-      var m0 = 0, m1 = 0;
+      // One-sided plans are only valid while the price stays OUTSIDE the band:
+      // token0-only needs tick < lo, token1-only needs tick >= hi.
+      if (!bothSides && amount0.gt(0) && tick >= lo) {
+        return { ok: false, reason: 'The price moved into your planned band — close this and rebuild the plan so it re-centers on the live price.' };
+      }
+      if (!bothSides && amount1.gt(0) && tick < hi) {
+        return { ok: false, reason: 'The price moved into your planned band — close this and rebuild the plan so it re-centers on the live price.' };
+      }
+      var m0 = ethers.BigNumber.from(mintParams.amount0Min || 0), m1 = ethers.BigNumber.from(mintParams.amount1Min || 0);
       if (bothSides) {
         var a0f = parseFloat(amount0.toString()), a1f = parseFloat(amount1.toString());
         var sqP = Math.pow(1.0001, tick / 2), sqL = Math.pow(1.0001, lo / 2), sqH = Math.pow(1.0001, hi / 2);
