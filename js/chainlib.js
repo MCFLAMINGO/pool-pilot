@@ -495,6 +495,48 @@
     };
   }
 
+  // Rebuild a mint's slippage minimums + deadline against the LIVE tick right before
+  // signing. Plans can sit open for minutes while the user wraps/approves; the pool
+  // trades in the meantime and mins computed at plan time go stale, which makes the
+  // wallet's gas estimate revert (the tx "blips" and never broadcasts).
+  function refreshMintTx(info, mintParams, wrapRefund) {
+    var provider = getProvider();
+    var pool = new ethers.Contract(info.pool, POOL_ABI, provider);
+    return pool.slot0().then(function (s) {
+      var tick = s.tick;
+      var lo = mintParams.tickLower, hi = mintParams.tickUpper;
+      var amount0 = ethers.BigNumber.from(mintParams.amount0Desired);
+      var amount1 = ethers.BigNumber.from(mintParams.amount1Desired);
+      var bothSides = amount0.gt(0) && amount1.gt(0);
+      // A straddle whose price escaped the range is no longer a straddle — rebuild it.
+      if (bothSides && (tick <= lo || tick >= hi)) {
+        return { ok: false, reason: 'The price has moved outside your planned range — close this and rebuild the plan so it re-centers on the live price.' };
+      }
+      var m0 = 0, m1 = 0;
+      if (bothSides) {
+        var a0f = parseFloat(amount0.toString()), a1f = parseFloat(amount1.toString());
+        var sqP = Math.pow(1.0001, tick / 2), sqL = Math.pow(1.0001, lo / 2), sqH = Math.pow(1.0001, hi / 2);
+        var L0 = a0f * (sqP * sqH) / (sqH - sqP);
+        var L1 = a1f / (sqP - sqL);
+        var L = Math.min(L0, L1);
+        var r0 = (L * (sqH - sqP) / (sqP * sqH)) / a0f;
+        var r1 = (L * (sqP - sqL)) / a1f;
+        m0 = amount0.mul(Math.max(0, Math.floor(r0 * 800))).div(1000);
+        m1 = amount1.mul(Math.max(0, Math.floor(r1 * 800))).div(1000);
+      }
+      var fresh = {
+        token0: mintParams.token0, token1: mintParams.token1, fee: mintParams.fee,
+        tickLower: lo, tickUpper: hi,
+        amount0Desired: amount0, amount1Desired: amount1,
+        amount0Min: m0, amount1Min: m1,
+        recipient: mintParams.recipient, deadline: deadline()
+      };
+      var call = iNPM.encodeFunctionData('mint', [fresh]);
+      if (wrapRefund) call = iNPM.encodeFunctionData('multicall', [[call, iNPM.encodeFunctionData('refundETH', [])]]);
+      return { ok: true, data: call };
+    });
+  }
+
   function fmtPrice(p) {
     if (p == null) return '—';
     if (p === 0) return '0';
@@ -513,6 +555,7 @@
     planBuySide: planBuySide,
     planStraddle: planStraddle,
     planCollect: planCollect,
+    refreshMintTx: refreshMintTx,
     quoteFee: quoteFee,
     payFeeWithEthTx: payFeeWithEthTx,
     payFeeWithMcflTx: payFeeWithMcflTx,

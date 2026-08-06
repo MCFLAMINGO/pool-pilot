@@ -581,7 +581,19 @@
       chain = chain.then(function () {
         var el = $('step' + i);
         el.classList.add('active');
-        return signer.sendTransaction({ to: t.to, data: t.data, value: t.value || '0x0' }).then(function (resp) {
+        // Mints re-read the live pool price right before signing so the slippage
+        // guard is computed against NOW, not against when the plan was built.
+        var prep = Promise.resolve(t.data);
+        if (t.mintParams) {
+          var wrapRefund = t.data.slice(0, 10) === '0xac9650d8'; // multicall (fee payment carries refundETH)
+          prep = L.refreshMintTx(S.info, t.mintParams, wrapRefund).then(function (r) {
+            if (!r.ok) throw new Error(r.reason);
+            return r.data;
+          });
+        }
+        return prep.then(function (data) {
+          return signer.sendTransaction({ to: t.to, data: data, value: t.value || '0x0' });
+        }).then(function (resp) {
           hashes.push(resp.hash);
           el.innerHTML += '<a href="' + explorerTx(resp.hash) + '" target="_blank" rel="noopener">view tx</a>';
           return read.waitForTransaction(resp.hash, 1, 180000).then(function (rc) {
