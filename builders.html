@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>For Builders — The Omnichain Launch Playbook · Pool Pilot</title>
+<meta name="description" content="A copy-paste prompt for your AI: take your token multi-chain with LayerZero and stand up healthy Uniswap v3 liquidity on Robinhood Chain. Every rule learned on mainnet.">
+<meta property="og:title" content="The Omnichain Launch Playbook — a prompt for your AI">
+<meta property="og:description" content="Copy one prompt into Claude, ChatGPT, or Grok and launch multi-chain with healthy v3 liquidity on Robinhood Chain. Battle-tested on mainnet.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://poolpilot.xyz/builders.html">
+<meta property="og:site_name" content="Pool Pilot">
+<meta property="og:image" content="https://poolpilot.xyz/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Omnichain Launch Playbook — a prompt for your AI">
+<meta name="twitter:description" content="Copy one prompt into your LLM and launch multi-chain with healthy v3 liquidity on Robinhood Chain.">
+<meta name="twitter:image" content="https://poolpilot.xyz/og.png">
+<link rel="canonical" href="https://poolpilot.xyz/builders.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  .prompt-wrap { position: relative; margin-top: 20px; }
+  .prompt-box {
+    width: 100%; box-sizing: border-box; font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; line-height: 1.65; color: var(--text, #231c1a);
+    background: var(--surface-2, #f3eeeb); border: 1px solid var(--border, #e4dcd7);
+    border-radius: 12px; padding: 20px; white-space: pre-wrap; word-break: break-word;
+    max-height: 62vh; overflow-y: auto;
+  }
+  .copybar { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .copied-note { color: var(--muted, #756a66); font-size: 13px; display: none; }
+  .lead { max-width: 62ch; }
+  .backlink { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="logo">
+      <img src="logo.png" alt="Pool Pilot logo" width="36" height="36" style="display:block">
+      <div>
+        <h1>Pool Pilot</h1>
+        <span class="sub">For builders — the omnichain launch playbook</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="card">
+    <a class="backlink" href="index.html">&larr; Back to the app</a>
+    <h2>One prompt. Paste it into your AI.</h2>
+    <p class="lead">This is the exact playbook behind MCFL's launch: LayerZero OFT to go multi-chain, then concentrated Uniswap v3 liquidity on Robinhood Chain. Every rule in it comes from a real mainnet failure we hit and fixed — stale slippage floors, the zero-liquidity one-token straddle, silent wallet account switches. Copy it into Claude, ChatGPT, or Grok and it becomes your launch copilot.</p>
+    <div class="copybar">
+      <button class="btn btn-primary" id="copyBtn" data-testid="button-copy-prompt">Copy the prompt</button>
+      <a class="btn btn-ghost" href="builders-prompt.md" download data-testid="link-download-prompt">Download .md</a>
+      <span class="copied-note" id="copiedNote">Copied — paste it into your LLM.</span>
+    </div>
+    <div class="prompt-wrap">
+      <div class="prompt-box" id="promptBox" data-testid="text-prompt">Loading the playbook…</div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Pool Pilot is a McFlamingo product. Not financial advice — liquidity provision carries risk, including impermanent loss.</p>
+    <p>You sign everything. We custody nothing. · <a href="https://github.com/MCFLAMINGO/pool-pilot" target="_blank" rel="noopener">Open source on GitHub</a></p>
+  </footer>
+</div>
+
+<script src="js/builders.js"></script>
+</body>
+</html>
