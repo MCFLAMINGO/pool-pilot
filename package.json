@@ -1,0 +1,30 @@
+{
+  "name": "pool-pilot",
+  "version": "1.0.0",
+  "description": "Liquidity copilot for Uniswap v3 pools on Robinhood Chain. Non-custodial, zero-dependency front end.",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "serve": "npx serve -l 3000 .",
+    "test:reads": "node test/reads.js",
+    "test:plans": "node test/sims.js",
+    "test:fork": "node test/fork-sims.js",
+    "test:fee": "node test/fee-lp-sim.js",
+    "test:sandwich": "node test/sandwich-sim.js",
+    "test:all-fork": "node test/fork-sims.js && node test/fee-lp-sim.js && node test/sandwich-sim.js"
+  },
+  "dependencies": {
+    "ethers": "5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MCFLAMINGO/pool-pilot"
+  },
+  "keywords": [
+    "uniswap-v3",
+    "liquidity",
+    "robinhood-chain",
+    "defi",
+    "non-custodial"
+  ]
+}
