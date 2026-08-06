@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Security: strict CSP. No inline scripts, no eval, and scripts/connections are
+     limited to an explicit allow-list. Even if a hostile string ever reached the DOM,
+     the browser refuses to execute it, and no data can be sent to an unlisted host. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <title>Pool Pilot — Liquidity copilot for Robinhood Chain</title>
 <meta name="description" content="See the health of your token's Uniswap v3 pool on Robinhood Chain and fix it in one click. Non-custodial — every transaction signs in your own wallet.">
 <meta property="og:title" content="Pool Pilot — Liquidity copilot for Robinhood Chain">
@@ -103,6 +108,10 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
       <p><strong>Fees are paid in <a href="https://robinhoodchain.blockscout.com/address/0x21A91215fbFc4fc002B07cc87698A6fC01Aed523" target="_blank" rel="noopener">MCFL</a></strong> — a verified LayerZero OFT token — and every payment is a public on-chain receipt. ETH fees never swap: they are deposited as buy-side liquidity in the MCFL pool, so every payment makes the book deeper, not the price wilder.</p>
     </div>
+    <div class="tline">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <p><strong>Hardened against the usual tricks.</strong> Token names are stripped of markup, the page runs under a strict content policy that blocks any injected script, the one external library is pinned by cryptographic hash, and every deposit carries an on-chain minimum so a front-runner cannot skew it — the transaction reverts instead. <a href="#" id="secLink" data-testid="link-security">Read the security notes</a>.</p>
+    </div>
   </section>
 
   <footer>
@@ -116,7 +125,7 @@
   <div class="modal" role="dialog" aria-modal="true" id="modal"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous"></script>
 <script src="js/chainlib.js"></script>
 <script src="js/app.js"></script>
 </body>

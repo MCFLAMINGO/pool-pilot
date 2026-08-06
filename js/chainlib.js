@@ -105,6 +105,12 @@
     return Math.round(l);
   }
 
+  // Security: token symbol/name come from arbitrary contracts — strip anything
+  // that is not a plain label character so they can never carry markup.
+  function cleanLabel(s, max) {
+    return String(s == null ? '' : s).replace(/[^A-Za-z0-9 _.$-]/g, '').trim().slice(0, max);
+  }
+
   function alignTick(tick, spacing, roundUp) {
     var r = Math.floor(tick / spacing) * spacing;
     if (roundUp && r < tick) r += spacing;
@@ -139,8 +145,8 @@
       ]).then(function (r) {
         return {
           token: tokenAddr,
-          symbol: r[3],
-          name: r[4],
+          symbol: cleanLabel(r[3], 12) || 'TOKEN',
+          name: cleanLabel(r[4], 40) || 'Unknown token',
           decimals: r[2],
           pool: best.address,
           fee: best.fee,
@@ -154,18 +160,22 @@
   }
 
   // ---------- ETH/USD ----------
+  // Security: a poisoned/failing price API must never produce an absurd fee.
+  // Anything outside a wide sanity band is treated as "no price" (blocks the ETH fee path).
+  function saneUsd(v) { return (typeof v === 'number' && isFinite(v) && v >= 100 && v <= 100000) ? v : null; }
+
   function fetchEthUsd(fetchFn) {
     var f = fetchFn || (typeof fetch !== 'undefined' ? fetch : null);
     if (!f) return Promise.resolve(null);
     return f('https://api.coinbase.com/v2/prices/ETH-USD/spot')
       .then(function (r) { return r.json(); })
-      .then(function (j) { return parseFloat(j.data.amount); })
+      .then(function (j) { var v = saneUsd(parseFloat(j.data.amount)); if (v == null) throw new Error('bad price'); return v; })
       .catch(function () {
         return f('https://api.geckoterminal.com/api/v2/simple/networks/eth/token_price/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2')
           .then(function (r) { return r.json(); })
           .then(function (j) {
             var m = j.data.attributes.token_prices;
-            return parseFloat(m[Object.keys(m)[0]]);
+            return saneUsd(parseFloat(m[Object.keys(m)[0]]));
           })
           .catch(function () { return null; });
       });
@@ -351,11 +361,27 @@
     var ethAmt = ethers.utils.parseEther(ethAmountStr);
     var amount0 = info.tokenIsToken1 ? ethAmt : tokenAmt;
     var amount1 = info.tokenIsToken1 ? tokenAmt : ethAmt;
+    // Security (MEV): for an in-range mint the pool price at execution decides how much of
+    // each side is actually used. Compute the expected split at the CURRENT price and
+    // require at least 80% of it — if someone shoves the price before the mint lands,
+    // the transaction reverts instead of depositing a skewed position.
+    var m0 = 0, m1 = 0;
+    var a0f = parseFloat(amount0.toString()), a1f = parseFloat(amount1.toString());
+    if (a0f > 0 && a1f > 0) {
+      var sqP = Math.pow(1.0001, state.tick / 2), sqL = Math.pow(1.0001, lo / 2), sqH = Math.pow(1.0001, hi / 2);
+      var L0 = a0f * (sqP * sqH) / (sqH - sqP);
+      var L1 = a1f / (sqP - sqL);
+      var L = Math.min(L0, L1);
+      var r0 = (L * (sqH - sqP) / (sqP * sqH)) / a0f;   // expected used / desired, 0..1
+      var r1 = (L * (sqP - sqL)) / a1f;
+      m0 = amount0.mul(Math.max(0, Math.floor(r0 * 800))).div(1000);
+      m1 = amount1.mul(Math.max(0, Math.floor(r1 * 800))).div(1000);
+    }
     var mintParams = {
       token0: info.token0, token1: info.token1, fee: info.fee,
       tickLower: lo, tickUpper: hi,
       amount0Desired: amount0, amount1Desired: amount1,
-      amount0Min: 0, amount1Min: 0,
+      amount0Min: m0, amount1Min: m1,
       recipient: walletAddr, deadline: deadline()
     };
     var txs = [];
@@ -400,8 +426,12 @@
       var pool = new ethers.Contract(info.pool, POOL_ABI, provider);
       return pool.slot0().then(function (s) {
         var pEth = priceOfTokenInEth(s.sqrtPriceX96, info.tokenIsToken1, info.decimals);
-        var usd = ethUsd || 3000;
+        // Security: never invent an ETH price. If the feed is down or returned an
+        // insane value, refuse to quote a fee rather than charging a wrong amount.
+        var usd = saneUsd(ethUsd);
+        if (usd == null) throw new Error('Cannot price the $25 fee right now \u2014 the ETH price feed is unavailable. Try again in a moment.');
         var pUsd = pEth * usd;
+        if (!isFinite(pUsd) || pUsd <= 0) throw new Error('This pool has no usable price right now \u2014 refusing to quote a fee.');
         var mcflAmountF = CFG.FEE_USD / pUsd;
         var mcflAmount = ethers.utils.parseUnits(mcflAmountF.toFixed(6), info.decimals);
         var ethInF = CFG.FEE_USD / usd; // exactly $25 of ETH at spot — no impact premium

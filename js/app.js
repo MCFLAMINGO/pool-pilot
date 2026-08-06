@@ -132,6 +132,24 @@
   }
   $('walletBtn').addEventListener('click', function () { if (!S.wallet.addr) connectExplained(); });
 
+  function securityNotes() {
+    openModal('<h3>Security notes</h3>' +
+      '<p class="msub">What we did so a hostile token, a hacked CDN, or a front-runner cannot hurt you. Every item below is tested, not aspirational.</p>' +
+      '<ul class="tlist">' +
+      '<li><strong>Hostile token metadata.</strong> A token contract can return anything it wants for its name and symbol — including HTML. We strip every character that is not a plain letter, number, or space, cap the length, and escape it again before it reaches the page. Tested by feeding the app a token whose symbol was an image tag with an attack payload: it rendered as harmless text and never ran.</li>' +
+      '<li><strong>Injected scripts.</strong> The page runs under a strict content security policy — no inline scripts, no <code>eval</code>, and network requests limited to the chain RPC and two price feeds. Even if something hostile reached the page, the browser refuses to execute it and it has nowhere to send data.</li>' +
+      '<li><strong>Supply chain.</strong> The single third-party library (ethers v5.7.2) is pinned to a cryptographic hash. If that CDN were ever compromised and served different code, your browser blocks it and the app simply will not load — it cannot be silently swapped for a drainer.</li>' +
+      '<li><strong>Front-running your deposit.</strong> Deposits that sit at the current price used to accept any split. Now every one carries an on-chain minimum computed from the price at preview time. If someone shoves the price before your transaction lands, it reverts and you keep your funds. Tested on a mainnet fork with a live attacker transaction in between.</li>' +
+      '<li><strong>Price feed manipulation.</strong> The $25 fee is priced from an external ETH feed. Any value outside a sane band — or a missing feed — now blocks the quote entirely instead of falling back to a guess, so a bad feed can never make you overpay.</li>' +
+      '<li><strong>Approvals.</strong> Every approval is for the exact amount of that one move and goes only to Uniswap’s position manager. No unlimited approvals, no <code>setApprovalForAll</code>, and no Pool Pilot contract exists to approve.</li>' +
+      '<li><strong>Wrong network.</strong> The app verifies the chain ID before every signature and prompts you to switch. It cannot quietly get you to sign something on a different chain.</li>' +
+      '<li><strong>Honest limits.</strong> This is a front end — it can only ever build transactions you approve in your own wallet. The residual risks are the ones every dapp shares: a compromised wallet extension, a DNS hijack of the domain, or a malicious token whose transfer logic itself is hostile. Verify the address in your wallet popup on every step; that is your final check and it always works.</li>' +
+      '</ul>' +
+      '<button class="btn btn-primary btn-lg" id="secClose" data-testid="button-security-close">Got it</button>');
+    $('secClose').addEventListener('click', closeModal);
+  }
+  if ($('secLink')) $('secLink').addEventListener('click', function (e) { e.preventDefault(); securityNotes(); });
+
   if (hasWallet()) {
     window.ethereum.on && window.ethereum.on('accountsChanged', function (a) {
       S.wallet.addr = a && a[0] ? a[0] : null;
@@ -306,7 +324,8 @@
 
   function walletGate() {
     if (!hasWallet()) {
-      openModal('<h3>Wallet needed</h3><p class="msub">No wallet was found in this window. If you are viewing this inside a preview pane, open the site in its own browser tab with MetaMask or Rabby installed. Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" onclick="document.getElementById(\'overlay\').classList.remove(\'open\')">Close</button>');
+      openModal('<h3>Wallet needed</h3><p class="msub">No wallet was found in this window. If you are viewing this inside a preview pane, open the site in its own browser tab with MetaMask or Rabby installed. Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" id="wgClose" data-testid="button-wallet-gate-close">Close</button>');
+      $('wgClose').addEventListener('click', closeModal);
       return false;
     }
     if (!S.wallet.addr) { connectExplained(); return false; }
@@ -551,7 +570,7 @@
     function shortAddr(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
     var stepsHtml = txs.map(function (t, i) {
       return '<div class="step" id="step' + i + '"><span class="dot">' + (i + 1) + '</span><span class="lbl">' + esc(t.label) +
-        '<a class="to" href="' + CFG.EXPLORER + '/address/' + t.to + '" target="_blank" rel="noopener">→ ' + contractName(t.to) + ' · ' + shortAddr(t.to) + '</a></span></div>';
+        '<a class="to" href="' + CFG.EXPLORER + '/address/' + esc(t.to) + '" target="_blank" rel="noopener">→ ' + esc(contractName(t.to)) + ' · ' + esc(shortAddr(t.to)) + '</a></span></div>';
     }).join('');
     openModal('<h3>' + esc(title) + '</h3><p class="msub">Confirm each transaction in your wallet. Nothing moves without your signature. <strong>Check the “to” address in your wallet matches each step below</strong> — that is your proof nothing else is being signed.</p><div class="steps">' + stepsHtml + '</div><div id="execFoot"></div>');
 
