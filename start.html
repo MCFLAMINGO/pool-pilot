@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Start your token — Pool Pilot</title>
+<meta name="description" content="The reality desk for starting a token: stage your assets, seed liquidity honestly, wire the rails. You're building a market, not winning a lottery. Platform fees in MCFL.">
+<meta property="og:title" content="Start your token — Pool Pilot">
+<meta property="og:description" content="Full-view ecosystem for serious creators. Stage everything. Pay in MCFL. Build a market, not a lottery.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://poolpilot.xyz/start.html">
+<meta property="og:image" content="https://poolpilot.xyz/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://poolpilot.xyz/start.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/start.css">
+</head>
+<body>
+<div class="shell shell-wide">
+
+  <header class="top">
+    <a class="logo" href="index.html" style="text-decoration:none;color:inherit">
+      <img src="logo.png" alt="Pool Pilot logo" width="36" height="36" style="display:block">
+      <div>
+        <h1>Start your token</h1>
+        <span class="sub">Reality desk · pay in MCFL</span>
+      </div>
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="getMcflBtn" data-testid="button-get-mcfl">Get MCFL</button>
+    <button class="btn btn-ghost" id="walletBtn" data-testid="button-connect-wallet">Connect wallet</button>
+  </header>
+
+  <section class="card hero-desk" aria-label="North star">
+    <p class="north">You’re building a market, not winning a lottery.</p>
+    <p class="lead">Pump.fun was fun. This is the full ecosystem for starting a <strong>real</strong> token — stage every asset in one place, see why each rail exists, and pay platform fees in <strong>MCFL</strong>. Skip what you don’t need. Deep links go to the right page every time.</p>
+    <div class="hero-actions">
+      <a class="btn btn-ghost" href="index.html" data-testid="link-pool-pilot">Pool Pilot (liquidity)</a>
+      <a class="btn btn-ghost" href="builders.html" data-testid="link-builders">Super Chain playbook</a>
+      <button class="btn btn-primary" id="scrollStageBtn" data-testid="button-scroll-stage">Open your Stage</button>
+    </div>
+    <div id="walletBanner" class="banner warn hidden" data-testid="banner-wallet"></div>
+    <div id="mcflBal" class="mcfl-pill hidden" data-testid="text-mcfl-balance"></div>
+  </section>
+
+  <section class="card callout" aria-label="Liquidity reality">
+    <h2>Liquidity first — read before you pay</h2>
+    <p>A token with no seed liquidity cannot be bought or sold meaningfully. <strong>Serious floor: plan ~$5k–$15k</strong> concentrated near spot on your home chain (more if you want $500 buys to feel okay). Below ~$1k is demo-only.</p>
+    <p class="muted">Seed means your start money becomes <strong>50/50 ETH + token in the pool</strong> — you’re buying both sides of the book, not a lottery ticket. Desk fees ($50 MCFL) are for tooling; they are <em>not</em> your liquidity.</p>
+    <label class="checkline">
+      <input type="checkbox" id="liqAck" data-testid="check-liquidity">
+      <span>I understand I must fund seed liquidity myself. Pool Pilot does not fund my pool.</span>
+    </label>
+  </section>
+
+  <section class="card" id="liabilityCard" aria-label="Liability">
+    <h2>Liability — required</h2>
+    <p class="muted">Not legal advice. Counsel should review before you rely on this. You must accept before unlocking paid modules.</p>
+    <ul class="tlist">
+      <li>You are the <strong>issuer</strong> of any token you launch. Pool Pilot / McFlamingo provide software and concierge tooling — not co-issuance, underwriting, or an exchange.</li>
+      <li>Tokens can go to <strong>zero</strong>. No return is promised.</li>
+      <li>You alone are responsible for securities, marketing, and tax rules where you sell.</li>
+      <li>Optional marketer intro ≠ endorsement. Ongoing marketer fees are your deal.</li>
+      <li>Listings and allowlists are third-party and not guaranteed.</li>
+    </ul>
+    <label class="checkline">
+      <input type="checkbox" id="liabilityAck" data-testid="check-liability">
+      <span>I understand and accept all liability for tokens I create and markets I build.</span>
+    </label>
+    <div class="field" style="margin-top:12px">
+      <label for="liabilityType">Type I UNDERSTAND to confirm</label>
+      <input id="liabilityType" autocomplete="off" spellcheck="false" placeholder="I UNDERSTAND" data-testid="input-liability-type">
+    </div>
+  </section>
+
+  <section class="card" id="stageCard" aria-label="Stage">
+    <h2>Stage — everything in one place</h2>
+    <p class="muted">Stop hunting for the logo. Save once; every module copies from here.</p>
+    <div class="stage-grid">
+      <div class="field"><label for="fName">Token name</label><input id="fName" data-testid="input-name" placeholder="e.g. Harbor"></div>
+      <div class="field"><label for="fTicker">Ticker</label><input id="fTicker" data-testid="input-ticker" placeholder="e.g. HBR"></div>
+      <div class="field"><label for="fTagline">One-liner</label><input id="fTagline" data-testid="input-tagline" placeholder="What it is in one breath"></div>
+      <div class="field"><label for="fUse">Why it exists (required to push)</label><input id="fUse" data-testid="input-use" placeholder="Who pays what, for what — or meme + dated product"></div>
+      <div class="field full"><label for="fBlurb">Short blurb (X / TG)</label><input id="fBlurb" data-testid="input-blurb" placeholder="2–3 sentences"></div>
+      <div class="field full"><label for="fLong">Long description (listings)</label><textarea id="fLong" rows="3" data-testid="input-long" placeholder="Listing / site copy"></textarea></div>
+      <div class="field"><label for="fLogo">Logo URL</label><input id="fLogo" data-testid="input-logo" placeholder="https://…"></div>
+      <div class="field"><label for="fSite">Website</label><input id="fSite" data-testid="input-site" placeholder="https://…"></div>
+      <div class="field"><label for="fPaper">White paper URL</label><input id="fPaper" data-testid="input-paper" placeholder="https://… or GitHub"></div>
+      <div class="field"><label for="fX">X / Twitter</label><input id="fX" data-testid="input-x" placeholder="https://x.com/…"></div>
+      <div class="field"><label for="fTg">Telegram</label><input id="fTg" data-testid="input-tg" placeholder="https://t.me/…"></div>
+      <div class="field"><label for="fDisc">Discord</label><input id="fDisc" data-testid="input-discord" placeholder="https://discord.gg/…"></div>
+      <div class="field full"><label for="fContracts">Contract addresses (as you get them)</label><textarea id="fContracts" rows="2" data-testid="input-contracts" placeholder="Solana: …&#10;Base: …&#10;Robinhood: …"></textarea></div>
+      <div class="field full"><label for="fNotes">Private notes (logins reminder — do not put passwords here)</label><textarea id="fNotes" rows="2" data-testid="input-notes" placeholder="e.g. TG owned by @you — 2FA in 1Password"></textarea></div>
+    </div>
+    <div class="hero-actions" style="margin-top:12px">
+      <button class="btn btn-primary" id="saveStageBtn" data-testid="button-save-stage">Save Stage</button>
+      <button class="btn btn-ghost" id="copyPacketBtn" data-testid="button-copy-packet">Copy listing packet</button>
+      <button class="btn btn-ghost" id="exportStageBtn" data-testid="button-export-stage">Download Stage JSON</button>
+      <span class="copied-note" id="stageNote"></span>
+    </div>
+  </section>
+
+  <section class="card" id="modulesCard" aria-label="Modules">
+    <h2>Ecosystem modules</h2>
+    <p class="muted">Each block: why · how · open the right link · optional MCFL pay. Skip freely.</p>
+    <div id="moduleList"></div>
+  </section>
+
+  <section class="card" id="payCard" aria-label="Platform payments">
+    <h2>Platform payments — MCFL only</h2>
+    <p class="muted">Connect wallet on Robinhood Chain. Need MCFL first? Use <strong>Get MCFL</strong> (in-wallet swap or Uniswap).</p>
+    <div id="payList"></div>
+    <div id="payErr"></div>
+    <div id="payReceipts" class="receipts"></div>
+  </section>
+
+  <footer>
+    <p>Pool Pilot is a McFlamingo product. Not financial advice. You’re building a market, not winning a lottery.</p>
+    <p><a href="index.html">Liquidity copilot</a> · <a href="builders.html">Super Chain playbook</a> · <a href="https://robinhoodchain.blockscout.com/token/0x21a91215fbfc4fc002b07cc87698a6fc01aed523" target="_blank" rel="noopener">MCFL on explorer</a></p>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay" data-testid="modal-overlay">
+  <div class="modal" role="dialog" aria-modal="true" id="modal"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous"></script>
+<script src="js/chainlib.js"></script>
+<script src="js/start.js"></script>
+</body>
+</html>
