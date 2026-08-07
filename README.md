@@ -7,6 +7,7 @@ You paste a token address. Pool Pilot reads the pool live from chain and tells y
 It holds nothing. There is no Pool Pilot contract. Every write goes directly to Uniswap v3's audited `NonfungiblePositionManager`.
 
 **Live:** [poolpilot.xyz](https://poolpilot.xyz)
+**Start your token:** [poolpilot.xyz/start.html](https://poolpilot.xyz/start.html) — a Pool Pilot mode for serious creators (Stage pack, rails, MCFL-only platform fees). Same product as the liquidity copilot; different door.
 **Chain:** Robinhood Chain (chain ID `4663`) · [Blockscout explorer](https://robinhoodchain.blockscout.com)
 
 ---

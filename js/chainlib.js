@@ -455,7 +455,9 @@
   //  b) payWithEth: the ETH is deposited as buy-side liquidity in the MCFL pool,
   //     position owned by the treasury. No swap, no price impact — every fee
   //     payment automatically deepens the MCFL book instead of moving it.
-  function quoteFee(provider, ethUsd) {
+  function quoteFeeUsd(provider, ethUsd, usdAmount) {
+    var usdIn = usdAmount == null ? CFG.FEE_USD : Number(usdAmount);
+    if (!isFinite(usdIn) || usdIn <= 0) throw new Error('Invalid fee amount.');
     // price MCFL from its own pool
     return discoverPool(provider, CFG.MCFL).then(function (info) {
       var pool = new ethers.Contract(info.pool, POOL_ABI, provider);
@@ -464,12 +466,12 @@
         // Security: never invent an ETH price. If the feed is down or returned an
         // insane value, refuse to quote a fee rather than charging a wrong amount.
         var usd = saneUsd(ethUsd);
-        if (usd == null) throw new Error('Cannot price the $25 fee right now \u2014 the ETH price feed is unavailable. Try again in a moment.');
+        if (usd == null) throw new Error('Cannot price the fee right now \u2014 the ETH price feed is unavailable. Try again in a moment.');
         var pUsd = pEth * usd;
         if (!isFinite(pUsd) || pUsd <= 0) throw new Error('This pool has no usable price right now \u2014 refusing to quote a fee.');
-        var mcflAmountF = CFG.FEE_USD / pUsd;
+        var mcflAmountF = usdIn / pUsd;
         var mcflAmount = ethers.utils.parseUnits(mcflAmountF.toFixed(6), info.decimals);
-        var ethInF = CFG.FEE_USD / usd; // exactly $25 of ETH at spot — no impact premium
+        var ethInF = usdIn / usd; // exact USD of ETH at spot — no impact premium
         var ethIn = ethers.utils.parseEther(ethInF.toFixed(9));
         return {
           info: info,
@@ -479,7 +481,60 @@
           mcflPriceUsd: pUsd,
           ethIn: ethIn,
           ethInF: parseFloat(ethers.utils.formatEther(ethIn)),
-          usdIn: CFG.FEE_USD
+          usdIn: usdIn
+        };
+      });
+    });
+  }
+  function quoteFee(provider, ethUsd) {
+    return quoteFeeUsd(provider, ethUsd, CFG.FEE_USD);
+  }
+
+  // Build an ETH → MCFL swap via SwapRouter02 (user signs; we never custody).
+  function planBuyMcfl(provider, ethAmountF) {
+    var ethInF = Number(ethAmountF);
+    if (!isFinite(ethInF) || ethInF <= 0) throw new Error('Enter how much ETH you want to spend on MCFL.');
+    if (ethInF > 50) throw new Error('Cap this buy at 50 ETH per click — split larger buys.');
+    var ethIn = ethers.utils.parseEther(ethInF.toFixed(9));
+    return discoverPool(provider, CFG.MCFL).then(function (info) {
+      var quoter = new ethers.Contract(CFG.QUOTER_V2, QUOTER_ABI, provider);
+      return quoter.callStatic.quoteExactInputSingle({
+        tokenIn: CFG.WETH,
+        tokenOut: CFG.MCFL,
+        amountIn: ethIn,
+        fee: info.fee,
+        sqrtPriceLimitX96: 0
+      }).then(function (q) {
+        var amountOut = q.amountOut || q[0];
+        // 5% floor — thin book; user can bump size carefully
+        var minOut = amountOut.mul(95).div(100);
+        var params = {
+          tokenIn: CFG.WETH,
+          tokenOut: CFG.MCFL,
+          fee: info.fee,
+          recipient: ethers.constants.AddressZero, // filled at sign time with wallet
+          deadline: deadline(),
+          amountIn: ethIn,
+          amountOutMinimum: minOut,
+          sqrtPriceLimitX96: 0
+        };
+        return {
+          info: info,
+          ethIn: ethIn,
+          ethInF: ethInF,
+          amountOut: amountOut,
+          amountOutF: parseFloat(ethers.utils.formatUnits(amountOut, info.decimals)),
+          minOut: minOut,
+          params: params,
+          buildTx: function (recipient) {
+            var p = Object.assign({}, params, { recipient: recipient, deadline: deadline() });
+            return {
+              label: 'Buy MCFL with ' + ethInF.toFixed(5) + ' ETH (Uniswap v3)',
+              to: CFG.ROUTER02,
+              value: ethIn.toHexString(),
+              data: iRouter.encodeFunctionData('exactInputSingle', [p])
+            };
+          }
         };
       });
     });
@@ -523,8 +578,9 @@
     };
   }
   function payFeeWithMcflTx(quote) {
+    var usd = quote.usdIn != null ? quote.usdIn : CFG.FEE_USD;
     return {
-      label: 'Pay $' + CFG.FEE_USD + ' fee — transfer ' + Math.round(quote.mcflAmountF).toLocaleString() + ' MCFL to treasury',
+      label: 'Pay $' + usd + ' fee — transfer ' + Math.round(quote.mcflAmountF).toLocaleString() + ' MCFL to treasury',
       to: CFG.MCFL, value: '0x0',
       data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, quote.mcflAmount])
     };
@@ -600,6 +656,8 @@
     planCollect: planCollect,
     refreshMintTx: refreshMintTx,
     quoteFee: quoteFee,
+    quoteFeeUsd: quoteFeeUsd,
+    planBuyMcfl: planBuyMcfl,
     payFeeWithEthTx: payFeeWithEthTx,
     payFeeWithMcflTx: payFeeWithMcflTx,
     priceOfTokenInEth: priceOfTokenInEth,
