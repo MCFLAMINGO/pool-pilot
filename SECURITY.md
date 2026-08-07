@@ -123,7 +123,7 @@ Not bugs — properties of the design, disclosed:
 
 1. **Impermanent loss.** Concentrated positions below spot convert to the token as price falls into them. That is what a buy wall does. Disclosed in the UI and the footer.
 2. **Fees fund MCFL liquidity.** ETH fees mint treasury-owned positions in the MCFL pool. The treasury owns them and can withdraw them. This is stated at the point of payment; it is a business-model disclosure, not a user-fund risk — user funds are never involved.
-3. **Omnichain tier is manual.** Hand-delivered within 72 hours or refunded on-chain. Never described as automated.
+3. **Super Chain launch is manual.** LayerZero OFT mesh (Solana + Base + Robinhood) is hand-delivered within 72 hours or refunded on-chain. Never described as automated.
 4. **The 80% slippage floor is a judgement call.** Tighter reverts more often on thin pools; looser permits more skew. 80% was chosen for pools where a $50 trade moves price ~20%. Reviewers are invited to argue for a different number.
 5. **Public RPC dependency.** A malicious or failing RPC can misreport pool state, causing bad *advice*. It cannot cause a bad *signature* — the wallet independently displays the real transaction, and the chain rejects invalid state.
 

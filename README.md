@@ -55,7 +55,7 @@ test/           Node test suites that exercise chainlib.js against a mainnet for
 | **Deepen buy side** | WETH-only concentrated position from −10% to −35% of spot | You |
 | **Tighten the spread** | Two-sided position in a tight band around spot | You |
 | **Collect fees** | `collect()` on each of your positions | You |
-| **Omnichain request** | Fee payment + a request we fulfil by hand | — |
+| **Super Chain launch** | Fee payment + hand-delivered LayerZero OFT mesh (Solana + Base + Robinhood) | — |
 
 Each paid move costs $25. Fees are payable two ways:
 
@@ -162,7 +162,7 @@ Stated plainly, because a tool asking for wallet connections should not overclai
 
 - **Not audited by a third party.** The security work here is the author's own adversarial testing. It is real, it is documented, and it is not the same thing as an audit.
 - Concentrated liquidity carries **impermanent loss**. Positions placed below spot convert to the token if the price falls into them. That is the intended behaviour of a buy wall, and it is a real risk.
-- The **omnichain tier is hand-delivered** within 72 hours or refunded on-chain. It is not automated and is never presented as such.
+- **Super Chain launch** (LayerZero OFT peers on Solana + Base + Robinhood before public trading) is hand-delivered within 72 hours or refunded on-chain. It is not automated and is never presented as such.
 - Pool discovery checks the four standard fee tiers and picks the deepest WETH pair. Exotic pool setups may not be found.
 - Robinhood Chain's public RPC is non-archive, so history beyond roughly the last 5,000 blocks is unavailable.
 

@@ -296,7 +296,7 @@
     if (feesUsd > 0.25) {
       defs.push({ id: 'collect', rec: false, title: 'Collect your earned fees', why: 'You have ' + fmtUsd(feesUsd) + ' of trading fees sitting unclaimed across your positions.', fx: 'Sends earned fees to your wallet', price: 'Free' });
     }
-    defs.push({ id: 'omni', rec: false, title: 'Go omnichain + Robinhood app', why: 'Request LayerZero OFT deployment so your token moves across chains, plus listing guidance for the Robinhood app. Hand-delivered within 72h or your fee is refunded on-chain.', fx: 'Delivered by the Pool Pilot team, receipt on-chain', price: '$25 in MCFL' });
+    defs.push({ id: 'superchain', rec: false, title: 'Super Chain launch', why: 'Mint one LayerZero OFT wired across Solana, Base, and Robinhood Chain from day one — same supply everywhere, plus Robinhood app listing guidance. Hand-delivered within 72h or your fee is refunded on-chain.', fx: 'Multi-chain peers before public trading · receipt on-chain', price: '$25 in MCFL' });
     return defs.slice(0, 4);
   }
 
@@ -391,7 +391,7 @@
   function openMove(id) {
     showErr(null);
     if (id === 'collect') return openCollect();
-    if (id === 'omni') return openOmni();
+    if (id === 'omni' || id === 'superchain') return openOmni();
     if (!walletGate()) return;
     openModal('<h3>Loading preview…</h3><div class="skel" style="height:16px;margin:12px 0"></div><div class="skel" style="height:16px;width:70%"></div>');
     Promise.all([L.quoteFee(read, S.ethUsd), balances()]).then(function (r) {
@@ -531,17 +531,18 @@
     $('goBtn').addEventListener('click', function () { execute('Collect fees — ' + S.info.symbol, plan.txs); });
   }
 
-  /* ---------------- move: omnichain request ---------------- */
+  /* ---------------- move: Super Chain launch (manual OFT mesh) ---------------- */
   function openOmni() {
     if (!walletGate()) return;
     openModal('<h3>Loading…</h3><div class="skel" style="height:16px;margin:12px 0"></div>');
     Promise.all([L.quoteFee(read, S.ethUsd), balances()]).then(function (r) {
       var quote = r[0], bal = r[1];
       openModal(
-        '<h3>Go omnichain + Robinhood app</h3>' +
-        '<p class="msub">This one is hand-delivered: we deploy your token as a LayerZero OFT (the same audited standard MCFL itself uses to bridge Solana ↔ Robinhood Chain) and walk you through what Robinhood app visibility requires. <strong>Delivered within 72 hours of payment, or the fee is refunded on-chain — the receipt below is your proof.</strong></p>' +
+        '<h3>Super Chain launch</h3>' +
+        '<p class="msub">One token, many chains — designed that way from the start. We deploy a LayerZero OFT mesh (the same standard MCFL uses) with peers on <strong>Solana + Base + Robinhood Chain</strong> wired before public trading, so you never end up with orphan Smithii/pump mints to merge later. Includes Robinhood app listing guidance. <strong>Delivered within 72 hours of payment, or the fee is refunded on-chain — the receipt below is your proof.</strong></p>' +
         '<div class="preview">' +
-        '<div class="prow"><span class="k">You get</span><span class="v">OFT deployment + listing guidance</span></div>' +
+        '<div class="prow"><span class="k">You get</span><span class="v">OFT on Solana · Base · RH + listing guidance</span></div>' +
+        '<div class="prow"><span class="k">Design rule</span><span class="v">One supply · peers before the crowd</span></div>' +
         '<div class="prow"><span class="k">Turnaround</span><span class="v">≤ 72 hours or refunded</span></div></div>' +
         feeSection(quote, bal) +
         '<div id="mErr"></div>' +
@@ -553,10 +554,19 @@
       $('goBtn').addEventListener('click', function () {
         var txs = feeTxs(quote);
         if (!txs.length) { $('mErr').innerHTML = '<div class="banner warn">Operator wallet — nothing to pay. Email us directly.</div>'; return; }
-        execute('Omnichain request — ' + S.info.symbol, txs, function (hashes) {
-          var mail = 'mailto:erik@mcflamingo.com?subject=' + encodeURIComponent('Omnichain request: ' + S.info.symbol) +
-            '&body=' + encodeURIComponent('Token: ' + S.info.token + '\nPayment tx: ' + explorerTx(hashes[0]) + '\nWallet: ' + S.wallet.addr + '\n\nAnything else we should know:');
-          return '<div class="banner ok">Paid. Now send us the receipt so the clock starts: <a href="' + mail + '" style="color:var(--accent);font-weight:700">email your request</a> — it is pre-filled with your payment link.</div>';
+        execute('Super Chain launch — ' + S.info.symbol, txs, function (hashes) {
+          var mail = 'mailto:erik@mcflamingo.com?subject=' + encodeURIComponent('Super Chain launch: ' + S.info.symbol) +
+            '&body=' + encodeURIComponent(
+              'Super Chain launch request\n\n' +
+              'Token (current / home): ' + S.info.token + '\n' +
+              'Symbol: ' + S.info.symbol + '\n' +
+              'Payment tx: ' + explorerTx(hashes[0]) + '\n' +
+              'Wallet: ' + S.wallet.addr + '\n\n' +
+              'Requested peers: Solana + Base + Robinhood Chain\n' +
+              'Canonical home chain (if known): \n' +
+              'Anything else we should know:\n'
+            );
+          return '<div class="banner ok">Paid. Now send us the receipt so the clock starts: <a href="' + mail + '" style="color:var(--accent);font-weight:700">email your Super Chain request</a> — it is pre-filled with your payment link.</div>';
         });
       });
     });
