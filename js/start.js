@@ -107,7 +107,7 @@
       s.fContracts,
       '',
       'MCFL (platform fee token, Robinhood): ' + CFG.MCFL,
-      'Generated from Pool Pilot — Start your token (poolpilot.xyz/start.html)'
+      'Generated from Pool Pilot — Start your token (poolpilot.xyz/start)'
     ].join('\n');
   }
 
