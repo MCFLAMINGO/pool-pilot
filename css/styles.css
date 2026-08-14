@@ -102,6 +102,66 @@ body {
 .btn-ghost:hover:not(:disabled) { border-color: var(--text-faint); }
 .btn-lg { padding: 0.8rem 1.3rem; font-size: var(--text-base); width: 100%; }
 
+/* Wallet connection status — must be obvious at a glance */
+.wallet-slot {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  max-width: min(52vw, 220px);
+}
+.wallet-status {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.2rem 0.55rem; border-radius: 99px; line-height: 1.2;
+  white-space: nowrap; max-width: 100%;
+}
+.wallet-status .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+}
+.wallet-status.is-off {
+  background: var(--yellow-soft); color: var(--yellow);
+  border: 1px solid var(--border);
+}
+.wallet-status.is-off .dot { background: var(--yellow); }
+.wallet-status.is-on {
+  background: var(--green-soft); color: var(--green);
+  border: 1px solid var(--green);
+}
+.wallet-status.is-on .dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.wallet-status.is-warn {
+  background: var(--yellow-soft); color: var(--yellow);
+  border: 1px solid var(--yellow);
+}
+.wallet-status.is-warn .dot { background: var(--yellow); }
+#walletStatusLabel { overflow: hidden; text-overflow: ellipsis; }
+#walletBtn.wallet-off {
+  background: var(--accent); color: #fff; border: none;
+}
+#walletBtn.wallet-off:hover:not(:disabled) { background: var(--accent-hover); }
+#walletBtn.wallet-on {
+  background: var(--green-soft); color: var(--green);
+  border: 1.5px solid var(--green);
+  font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700;
+}
+#walletBtn.wallet-on:hover:not(:disabled) {
+  background: var(--green); color: #fff;
+}
+#walletBtn.wallet-warn {
+  background: var(--yellow-soft); color: var(--yellow);
+  border: 1.5px solid var(--yellow);
+  font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700;
+}
+.banner.wallet-connected {
+  background: var(--green-soft);
+  border: 1px solid var(--green);
+  color: var(--text);
+}
+@media (max-width: 520px) {
+  .wallet-slot { max-width: 46vw; }
+  #walletBtn { padding: 0.55rem 0.7rem; font-size: var(--text-xs); }
+}
+
 /* token entry */
 .entry { display: flex; gap: var(--space-2); }
 .entry input {
