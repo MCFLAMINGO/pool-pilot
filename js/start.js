@@ -144,22 +144,54 @@
   var CHAIN_HEX = '0x1237';
   var eth = null;
 
-  function pickProvider() {
+  var eip6963Wallets = [];
+  window.addEventListener('eip6963:announceProvider', function (e) {
+    var d = e && e.detail;
+    if (!d || !d.provider) return;
+    for (var i = 0; i < eip6963Wallets.length; i++) {
+      if (eip6963Wallets[i].provider === d.provider) return;
+    }
+    eip6963Wallets.push({
+      provider: d.provider,
+      name: (d.info && d.info.name) || 'Wallet',
+      rdns: (d.info && d.info.rdns) || ''
+    });
+  });
+  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+
+  function discoverProviders() {
+    try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+    var out = [];
+    var seen = [];
+    function add(provider, name, rdns) {
+      if (!provider || typeof provider.request !== 'function') return;
+      if (seen.indexOf(provider) !== -1) return;
+      seen.push(provider);
+      out.push({ provider: provider, name: name || guessName(provider), rdns: rdns || '' });
+    }
+    function guessName(p) {
+      if (p.isRabby) return 'Rabby';
+      if (p.isCoinbaseWallet || p.isCoinbaseBrowser) return 'Coinbase Wallet';
+      if (p.isBraveWallet) return 'Brave Wallet';
+      if (p.isOkxWallet || p.isOKExWallet) return 'OKX Wallet';
+      if (p.isTrust || p.isTrustWallet) return 'Trust Wallet';
+      if (p.isFrame) return 'Frame';
+      if (p.isMetaMask) return 'MetaMask';
+      return 'Browser wallet';
+    }
+    eip6963Wallets.forEach(function (w) { add(w.provider, w.name, w.rdns); });
     var ethereum = window.ethereum;
-    if (!ethereum) return null;
-    var list = (ethereum.providers && ethereum.providers.length)
-      ? ethereum.providers.slice()
-      : [ethereum];
-    return list.find(function (p) { return p && p.isRabby; })
-      || list.find(function (p) { return p && p.isMetaMask && !p.isBraveWallet; })
-      || list.find(function (p) { return p && p.isMetaMask; })
-      || list[0];
+    if (ethereum) {
+      if (ethereum.providers && ethereum.providers.length) {
+        ethereum.providers.forEach(function (p) { add(p, guessName(p)); });
+      } else {
+        add(ethereum, guessName(ethereum));
+      }
+    }
+    return out;
   }
-  function hasWallet() { return !!pickProvider(); }
-  function getEth() {
-    if (!eth) eth = pickProvider();
-    return eth;
-  }
+  function hasWallet() { return discoverProviders().length > 0; }
+  function getEth() { return eth; }
   function isRobinhood(id) {
     if (id == null) return false;
     if (typeof id === 'number') return id === CFG.CHAIN_ID;
@@ -174,7 +206,7 @@
       return 'You rejected the wallet request. Click Connect wallet to try again.';
     }
     if (e.code === -32002) {
-      return 'A wallet popup is already open — check your MetaMask/Rabby extension icon.';
+      return 'A wallet popup is already open — check your wallet extension icon.';
     }
     return e.message || String(e);
   }
@@ -182,9 +214,9 @@
     var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
     var mm = 'https://metamask.app.link/dapp/' + location.host + '/start';
     if (mobile) {
-      return 'No injected wallet here. On phone, open <a href="' + mm + '">Pool Pilot in MetaMask\u2019s browser</a>, or use desktop Chrome/Brave with MetaMask or Rabby.';
+      return 'No browser wallet detected. On phone, open this site in your wallet’s in-app browser (e.g. <a href="' + mm + '">MetaMask</a>), or use desktop Chrome/Brave with any injected wallet.';
     }
-    return 'No wallet found in this window. Open <strong>poolpilot.xyz/start</strong> in its own Chrome/Brave tab with <strong>MetaMask</strong> or <strong>Rabby</strong> (X/Telegram in-app browsers usually cannot connect).';
+    return 'No wallet found in this window. Open <strong>poolpilot.xyz/start</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …). X/Telegram in-app browsers usually cannot connect.';
   }
 
   function ensureChain() {
@@ -210,15 +242,14 @@
     });
   }
 
-  function connect() {
-    var p = pickProvider();
-    if (!p) {
+  function connectWith(provider) {
+    if (!provider) {
       $('walletBanner').innerHTML = noWalletHelp();
       $('walletBanner').classList.remove('hidden');
       return Promise.resolve(false);
     }
-    eth = p;
-    return p.request({ method: 'eth_requestAccounts' }).then(function (accts) {
+    eth = provider;
+    return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
       if (!accts || !accts[0]) throw new Error('No account returned from wallet.');
       S.wallet.addr = accts[0];
       $('walletBtn').textContent = short(S.wallet.addr);
@@ -237,6 +268,38 @@
       $('walletBanner').classList.remove('hidden');
       return false;
     });
+  }
+
+  function chooseWalletThenConnect() {
+    var wallets = discoverProviders();
+    if (!wallets.length) return connectWith(null);
+    if (wallets.length === 1) return connectWith(wallets[0].provider);
+    openModal(
+      '<h3>Choose your wallet</h3>' +
+      '<p class="msub">Any injected browser wallet works. Pick the one you want — Pool Pilot never defaults to a specific account.</p>' +
+      '<div id="walletChoices"></div>' +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
+    );
+    var box = $('walletChoices');
+    wallets.forEach(function (w, i) {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-primary btn-lg';
+      btn.style.marginTop = i ? '8px' : '0';
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.textContent = w.name;
+      btn.addEventListener('click', function () {
+        closeModal();
+        connectWith(w.provider);
+      });
+      box.appendChild(btn);
+    });
+    $('cxNo').addEventListener('click', closeModal);
+    return Promise.resolve(false);
+  }
+
+  function connect() {
+    return chooseWalletThenConnect();
   }
 
   function refreshMcfl() {
