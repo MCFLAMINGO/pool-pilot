@@ -433,21 +433,34 @@
     };
   }
 
-  // Move 3: collect earned fees on all matching positions
+  // Move 3: collect earned fees — one NPM.multicall for every matching position
+  // so the user signs once instead of once per NFT (gas + wallet friction).
   function planCollect(state, walletAddr) {
-    var txs = (state.positions && state.positions.list || [])
-      .filter(function (p) { return true; })
-      .map(function (p) {
-        return {
-          label: 'Collect fees from position #' + p.id,
-          to: CFG.NPM, value: '0x0',
-          data: iNPM.encodeFunctionData('collect', [{
-            tokenId: p.id, recipient: walletAddr,
-            amount0Max: MAX_UINT128, amount1Max: MAX_UINT128
-          }])
-        };
-      });
-    return { kind: 'collect', summary: {}, txs: txs };
+    var all = (state.positions && state.positions.list) || [];
+    var positions = all.filter(function (p) {
+      return (Number(p.fees0) || 0) + (Number(p.fees1) || 0) > 1e-12;
+    });
+    // If fee probes failed earlier, still try every matching position rather than no-op.
+    if (!positions.length && all.length) positions = all.slice();
+    if (!positions.length) return { kind: 'collect', summary: { count: 0 }, txs: [] };
+
+    var calls = positions.map(function (p) {
+      return iNPM.encodeFunctionData('collect', [{
+        tokenId: p.id, recipient: walletAddr,
+        amount0Max: MAX_UINT128, amount1Max: MAX_UINT128
+      }]);
+    });
+
+    return {
+      kind: 'collect',
+      summary: { count: positions.length },
+      txs: [{
+        label: 'Collect fees from ' + positions.length + ' position' + (positions.length === 1 ? '' : 's') + ' (one transaction)',
+        to: CFG.NPM,
+        value: '0x0',
+        data: iNPM.encodeFunctionData('multicall', [calls])
+      }]
+    };
   }
 
   // $25 fee payment. Two paths:
