@@ -86,9 +86,10 @@ async function sendPlan(signer, txs) {
   const st2 = await lib.readState(provider, info, ethUsd, ERIK);
   console.log('   pending:', st2.positions.feesToken.toFixed(0), 'MCFL +', st2.positions.feesEth.toFixed(6), 'WETH across', st2.positions.list.length, 'positions');
   const planC = lib.planCollect(st2, ERIK);
+  console.log('   collect plan txs:', planC.txs.length, '(expect 1 multicall)');
   const mB = await erc20(CFG.MCFL).balanceOf(ERIK);
-  for (const t of planC.txs.slice(0, 2)) {
-    const tx = await erik.sendTransaction({ to: t.to, data: t.data, gasLimit: 1000000 });
+  for (const t of planC.txs) {
+    const tx = await erik.sendTransaction({ to: t.to, data: t.data, gasLimit: 3000000 });
     const rc = await tx.wait();
     console.log('  ', rc.status === 1 ? 'OK ' : 'REVERT', t.label);
   }

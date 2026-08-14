@@ -55,7 +55,7 @@ test/           Node test suites that exercise chainlib.js against a mainnet for
 | --- | --- | --- |
 | **Deepen buy side** | WETH-only concentrated position from −10% to −35% of spot | You |
 | **Tighten the spread** | Two-sided position in a tight band around spot | You |
-| **Collect fees** | `collect()` on each of your positions | You |
+| **Collect fees** | One `NPM.multicall` of `collect()` for every matching position | You |
 | **Super Chain launch** | Fee payment + hand-delivered LayerZero OFT mesh (Solana + Base + Robinhood) | — |
 
 Each paid move costs $25. Fees are payable two ways:

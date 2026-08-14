@@ -824,14 +824,19 @@
     if (!walletGate()) return;
     var st = S.state;
     var plan = L.planCollect(st, S.wallet.addr);
-    var withFees = plan.txs.length;
+    if (!plan.txs.length) {
+      openModal('<h3>Nothing to collect</h3><p class="msub">No unclaimed fees on your positions in this pool.</p><button class="btn btn-ghost btn-lg" id="mClose">Close</button>');
+      $('mClose').addEventListener('click', closeModal);
+      return;
+    }
     openModal(
       '<h3>Collect your earned fees</h3>' +
-      '<p class="msub">Free — these are your trading fees. One transaction per position sends everything unclaimed straight to your wallet.</p>' +
+      '<p class="msub">Free — unclaimed fees from every matching position are pulled in <strong>one</strong> Uniswap multicall. You sign once; fees land in your wallet.</p>' +
       '<div class="preview">' +
       '<div class="prow"><span class="k">Unclaimed</span><span class="v">' + fmtTok(st.positions.feesToken) + ' ' + esc(S.info.symbol) + ' + ' + st.positions.feesEth.toFixed(5) + ' ETH</span></div>' +
-      '<div class="prow"><span class="k">Transactions</span><span class="v">' + withFees + '</span></div></div>' +
-      '<button class="btn btn-primary btn-lg" id="goBtn" data-testid="button-execute">Collect — free</button>' +
+      '<div class="prow"><span class="k">Positions</span><span class="v">' + (plan.summary.count || plan.txs.length) + '</span></div>' +
+      '<div class="prow"><span class="k">Transactions you will sign</span><span class="v">' + plan.txs.length + '</span></div></div>' +
+      '<button class="btn btn-primary btn-lg" id="goBtn" data-testid="button-execute">Collect — free (1 tx)</button>' +
       '<button class="btn btn-ghost btn-lg" id="mClose" style="margin-top:8px">Cancel</button>'
     );
     $('mClose').addEventListener('click', closeModal);
