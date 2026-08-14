@@ -127,14 +127,61 @@
     }
     return e.message || String(e);
   }
-  function noWalletHelp() {
-    var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  function isPhone() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  }
+  function siteUrl() {
+    return location.origin + (location.pathname || '/') + (location.search || '') + (location.hash || '');
+  }
+  function mmDappLink() {
     var path = (location.pathname || '/').replace(/\/$/, '') || '';
-    var mm = 'https://metamask.app.link/dapp/' + location.host + path + '/';
-    if (mobile) {
-      return 'No browser wallet detected. On phone, open this site in your wallet’s in-app browser (e.g. <a href="' + mm + '">MetaMask</a>), or use desktop Chrome/Brave with any injected wallet.';
+    return 'https://metamask.app.link/dapp/' + location.host + path + '/';
+  }
+  function noWalletHelp() {
+    if (isPhone()) {
+      return 'Phone browsers can’t inject a wallet. Tap <strong>Connect wallet</strong> for one-tap open in MetaMask / Coinbase / Trust — then Connect uses <em>your</em> account.';
     }
     return 'No wallet found in this window. Open <strong>poolpilot.xyz</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …). X/Telegram in-app browsers usually cannot connect.';
+  }
+  function copyText(text, btn) {
+    function ok() { if (btn) btn.textContent = 'Copied'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(ok).catch(function () {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta); ok();
+        } catch (e) { /* ignore */ }
+      });
+    }
+    try {
+      var ta2 = document.createElement('textarea');
+      ta2.value = text; document.body.appendChild(ta2); ta2.select();
+      document.execCommand('copy'); document.body.removeChild(ta2); ok();
+    } catch (e) { /* ignore */ }
+  }
+  /* Phone Safari/Chrome: no injected provider — deep-link into the visitor’s wallet app. */
+  function openNoWalletHelp() {
+    var url = siteUrl();
+    var enc = encodeURIComponent(url);
+    var mm = mmDappLink();
+    var cb = 'https://go.cb-w.com/dapp?cb_url=' + enc;
+    var trust = 'https://link.trustwallet.com/open_url?coin_id=60&url=' + enc;
+    openModal(
+      '<h3>Open in your wallet</h3>' +
+      '<p class="msub">This phone browser has no wallet plugin. Open Pool Pilot inside <strong>your</strong> wallet app — Connect will use that account, not anyone else’s.</p>' +
+      '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + mm + '" data-testid="link-open-metamask">Open in MetaMask</a>' +
+      '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + cb + '" data-testid="link-open-coinbase">Open in Coinbase Wallet</a>' +
+      '<a class="btn btn-ghost btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + trust + '" data-testid="link-open-trust">Open in Trust Wallet</a>' +
+      '<button class="btn btn-ghost btn-lg" id="copyPpUrl" style="margin-top:8px;width:100%" data-testid="button-copy-dapp-url">Copy link for any wallet browser</button>' +
+      '<p class="msub" style="margin-top:12px">Pool checks still work here without connecting. Desktop Chrome/Brave + any extension also works.</p>' +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
+    );
+    $('copyPpUrl').addEventListener('click', function () { copyText(url, $('copyPpUrl')); });
+    $('cxNo').addEventListener('click', closeModal);
+    $('walletBanner').innerHTML = noWalletHelp();
+    $('walletBanner').classList.remove('hidden');
+    return Promise.resolve(false);
   }
 
   function updateWalletBtn() {
@@ -186,11 +233,7 @@
   }
 
   function connectWith(provider) {
-    if (!provider) {
-      $('walletBanner').innerHTML = noWalletHelp();
-      $('walletBanner').classList.remove('hidden');
-      return Promise.resolve(false);
-    }
+    if (!provider) return openNoWalletHelp();
     eth = provider;
     bindWalletEvents(provider);
     return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
@@ -456,8 +499,7 @@
 
   function walletGate() {
     if (!hasWallet()) {
-      openModal('<h3>Wallet needed</h3><p class="msub">' + noWalletHelp() + ' Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" id="wgClose" data-testid="button-wallet-gate-close">Close</button>');
-      $('wgClose').addEventListener('click', closeModal);
+      openNoWalletHelp();
       return false;
     }
     if (!S.wallet.addr) { connectExplained(); return false; }
