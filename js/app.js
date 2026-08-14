@@ -57,7 +57,85 @@
 
   /* ---------------- wallet ---------------- */
   var CHAIN_HEX = '0x1237';
-  function hasWallet() { return typeof window.ethereum !== 'undefined'; }
+  var eth = null; // EIP-1193 provider the visitor chose — never a hardcoded default account
+
+  /* EIP-6963 announcements accumulate for the whole session; request on each discover. */
+  var eip6963Wallets = [];
+  window.addEventListener('eip6963:announceProvider', function (e) {
+    var d = e && e.detail;
+    if (!d || !d.provider) return;
+    for (var i = 0; i < eip6963Wallets.length; i++) {
+      if (eip6963Wallets[i].provider === d.provider) return;
+    }
+    eip6963Wallets.push({
+      provider: d.provider,
+      name: (d.info && d.info.name) || 'Wallet',
+      rdns: (d.info && d.info.rdns) || ''
+    });
+  });
+  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+
+  /* Discover every injected wallet. Do not prefer MetaMask/Rabby — visitors pick. */
+  function discoverProviders() {
+    try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+    var out = [];
+    var seen = [];
+    function add(provider, name, rdns) {
+      if (!provider || typeof provider.request !== 'function') return;
+      if (seen.indexOf(provider) !== -1) return;
+      seen.push(provider);
+      out.push({ provider: provider, name: name || guessName(provider), rdns: rdns || '' });
+    }
+    function guessName(p) {
+      if (p.isRabby) return 'Rabby';
+      if (p.isCoinbaseWallet || p.isCoinbaseBrowser) return 'Coinbase Wallet';
+      if (p.isBraveWallet) return 'Brave Wallet';
+      if (p.isOkxWallet || p.isOKExWallet) return 'OKX Wallet';
+      if (p.isTrust || p.isTrustWallet) return 'Trust Wallet';
+      if (p.isFrame) return 'Frame';
+      if (p.isMetaMask) return 'MetaMask';
+      return 'Browser wallet';
+    }
+    eip6963Wallets.forEach(function (w) { add(w.provider, w.name, w.rdns); });
+    var ethereum = window.ethereum;
+    if (ethereum) {
+      if (ethereum.providers && ethereum.providers.length) {
+        ethereum.providers.forEach(function (p) { add(p, guessName(p)); });
+      } else {
+        add(ethereum, guessName(ethereum));
+      }
+    }
+    return out;
+  }
+  function hasWallet() { return discoverProviders().length > 0; }
+  function getEth() { return eth; }
+  function isRobinhood(id) {
+    if (id == null) return false;
+    if (typeof id === 'number') return id === CFG.CHAIN_ID;
+    var s = String(id).toLowerCase();
+    if (s === CHAIN_HEX) return true;
+    try { return parseInt(s, 16) === CFG.CHAIN_ID || Number(s) === CFG.CHAIN_ID; }
+    catch (e) { return false; }
+  }
+  function walletErrMsg(e) {
+    if (!e) return 'Unknown wallet error';
+    if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
+      return 'You rejected the wallet request. Click Connect wallet to try again.';
+    }
+    if (e.code === -32002) {
+      return 'A wallet popup is already open — check your wallet extension icon.';
+    }
+    return e.message || String(e);
+  }
+  function noWalletHelp() {
+    var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    var path = (location.pathname || '/').replace(/\/$/, '') || '';
+    var mm = 'https://metamask.app.link/dapp/' + location.host + path + '/';
+    if (mobile) {
+      return 'No browser wallet detected. On phone, open this site in your wallet’s in-app browser (e.g. <a href="' + mm + '">MetaMask</a>), or use desktop Chrome/Brave with any injected wallet.';
+    }
+    return 'No wallet found in this window. Open <strong>poolpilot.xyz</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …). X/Telegram in-app browsers usually cannot connect.';
+  }
 
   function updateWalletBtn() {
     var b = $('walletBtn');
@@ -69,13 +147,16 @@
   }
 
   function ensureChain() {
-    return window.ethereum.request({ method: 'eth_chainId' }).then(function (id) {
-      if (id === CHAIN_HEX) return true;
-      return window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_HEX }] })
+    var p = getEth();
+    if (!p) return Promise.reject(new Error('No wallet provider'));
+    return p.request({ method: 'eth_chainId' }).then(function (id) {
+      if (isRobinhood(id)) return true;
+      return p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_HEX }] })
         .then(function () { return true; })
         .catch(function (e) {
-          if (e && (e.code === 4902 || (e.message || '').indexOf('4902') !== -1 || (e.message || '').toLowerCase().indexOf('unrecognized') !== -1)) {
-            return window.ethereum.request({
+          var msg = ((e && e.message) || '').toLowerCase();
+          if (e && (e.code === 4902 || String(e.code) === '4902' || msg.indexOf('4902') !== -1 || msg.indexOf('unrecognized') !== -1 || msg.indexOf('not been added') !== -1 || msg.indexOf('not added') !== -1)) {
+            return p.request({
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: CHAIN_HEX, chainName: 'Robinhood Chain',
@@ -89,25 +170,84 @@
     });
   }
 
-  function connect() {
-    if (!hasWallet()) {
-      $('walletBanner').innerHTML = 'No wallet found in this window. Pool Pilot works read-only here — to execute moves, open this site in its own browser tab with <strong>MetaMask</strong> or <strong>Rabby</strong> installed.';
+  function bindWalletEvents(p) {
+    if (!p || p.__ppBound) return;
+    p.__ppBound = true;
+    if (!p.on) return;
+    p.on('accountsChanged', function (a) {
+      S.wallet.addr = a && a[0] ? a[0] : null;
+      if (!S.wallet.addr) S.wallet.provider = null;
+      updateWalletBtn();
+      if (S.info) loadState();
+    });
+    p.on('chainChanged', function () {
+      if (S.wallet.addr && S.info) loadState();
+    });
+  }
+
+  function connectWith(provider) {
+    if (!provider) {
+      $('walletBanner').innerHTML = noWalletHelp();
       $('walletBanner').classList.remove('hidden');
       return Promise.resolve(false);
     }
-    return window.ethereum.request({ method: 'eth_requestAccounts' }).then(function (accts) {
+    eth = provider;
+    bindWalletEvents(provider);
+    return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
+      if (!accts || !accts[0]) throw new Error('No account returned from wallet.');
+      // Address comes from the visitor’s wallet — we never set a default account.
+      S.wallet.addr = accts[0];
+      S.wallet.provider = new ethers.providers.Web3Provider(provider, 'any');
+      updateWalletBtn();
       return ensureChain().then(function () {
-        S.wallet.addr = accts[0];
-        S.wallet.provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-        updateWalletBtn();
         $('walletBanner').classList.add('hidden');
+        showErr(null);
         if (S.info) loadState();
         return true;
+      }).catch(function (e) {
+        $('walletBanner').innerHTML = 'Connected as ' + short(S.wallet.addr) +
+          ', but <strong>Robinhood Chain (4663)</strong> is required. Approve Add/Switch network in your wallet, then click Connect again. ' +
+          esc(walletErrMsg(e));
+        $('walletBanner').classList.remove('hidden');
+        return false;
       });
     }).catch(function (e) {
-      showErr('Wallet connection failed: ' + ((e && e.message) || e));
+      showErr('Wallet connection failed: ' + walletErrMsg(e));
       return false;
     });
+  }
+
+  function chooseWalletThenConnect() {
+    var wallets = discoverProviders();
+    if (!wallets.length) return connectWith(null);
+    if (wallets.length === 1) return connectWith(wallets[0].provider);
+    openModal(
+      '<h3>Choose your wallet</h3>' +
+      '<p class="msub">Any injected browser wallet works. Pick the one you want to use — Pool Pilot never defaults to a specific account.</p>' +
+      '<div id="walletChoices"></div>' +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
+    );
+    var box = $('walletChoices');
+    wallets.forEach(function (w, i) {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-primary btn-lg';
+      btn.style.marginTop = i ? '8px' : '0';
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.setAttribute('data-testid', 'button-wallet-' + (w.rdns || w.name).replace(/\W+/g, '-').toLowerCase());
+      btn.textContent = w.name;
+      btn.addEventListener('click', function () {
+        closeModal();
+        connectWith(w.provider);
+      });
+      box.appendChild(btn);
+    });
+    $('cxNo').addEventListener('click', closeModal);
+    return Promise.resolve(false);
+  }
+
+  function connect() {
+    return chooseWalletThenConnect();
   }
   /* First-connect explainer — answers "why should I trust this button?" head-on. */
   function connectExplained() {
@@ -123,10 +263,10 @@
       '<li><strong>Approvals are exact-amount, never unlimited.</strong> No <code>setApprovalForAll</code>, ever.</li>' +
       '<li><strong>We never ask you to “sign a message.”</strong> If this site ever shows a signature request instead of a transaction — reject it.</li>' +
       '</ul>' +
-      '<button class="btn btn-primary btn-lg" id="cxGo" data-testid="button-connect-confirm">Share my address & connect</button>' +
+      '<button class="btn btn-primary btn-lg" id="cxGo" data-testid="button-connect-confirm">Choose wallet & connect</button>' +
       '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
     );
-    $('cxGo').addEventListener('click', function () { S.connectExplained = true; closeModal(); connect(); });
+    $('cxGo').addEventListener('click', function () { S.connectExplained = true; closeModal(); chooseWalletThenConnect(); });
     $('cxNo').addEventListener('click', closeModal);
     return Promise.resolve(false);
   }
@@ -149,14 +289,6 @@
     $('secClose').addEventListener('click', closeModal);
   }
   if ($('secLink')) $('secLink').addEventListener('click', function (e) { e.preventDefault(); securityNotes(); });
-
-  if (hasWallet()) {
-    window.ethereum.on && window.ethereum.on('accountsChanged', function (a) {
-      S.wallet.addr = a && a[0] ? a[0] : null;
-      updateWalletBtn();
-      if (S.info) loadState();
-    });
-  }
 
   /* ---------------- load token + state ---------------- */
   function setBusy(on) {
@@ -324,7 +456,7 @@
 
   function walletGate() {
     if (!hasWallet()) {
-      openModal('<h3>Wallet needed</h3><p class="msub">No wallet was found in this window. If you are viewing this inside a preview pane, open the site in its own browser tab with MetaMask or Rabby installed. Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" id="wgClose" data-testid="button-wallet-gate-close">Close</button>');
+      openModal('<h3>Wallet needed</h3><p class="msub">' + noWalletHelp() + ' Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" id="wgClose" data-testid="button-wallet-gate-close">Close</button>');
       $('wgClose').addEventListener('click', closeModal);
       return false;
     }
@@ -662,7 +794,7 @@
 
   /* ---------------- boot ---------------- */
   if (!hasWallet()) {
-    $('walletBanner').innerHTML = '<strong>Read-only mode.</strong> No wallet detected in this window — pool checks work fine. To execute moves, open this page in its own browser tab with MetaMask or Rabby.';
+    $('walletBanner').innerHTML = '<strong>Read-only mode.</strong> ' + noWalletHelp();
     $('walletBanner').classList.remove('hidden');
   }
   var h = (location.hash || '').slice(1);
