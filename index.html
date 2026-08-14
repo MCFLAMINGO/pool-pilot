@@ -118,6 +118,36 @@
     <div id="receipts"></div>
   </section>
 
+  <section class="card" id="fundCard" aria-label="Bring value to Robinhood" data-testid="card-fund-rh">
+    <h2>Bring value to Robinhood</h2>
+    <p style="font-size:var(--text-sm);color:var(--text-muted);margin:0 0 var(--space-4)">Pool Pilot only runs on chain <strong>4663</strong>. We don’t custody funds — these open the right tool with the destination already set.</p>
+
+    <div class="fund-path">
+      <div class="fund-path-title">1 · Gas money (no thinking)</div>
+      <p class="fund-path-body">Bridge <strong>ETH</strong> to Robinhood on your same <span class="mono">0x</span>. Use this before deepen / straddle / fees.</p>
+      <div class="fund-actions">
+        <a class="btn btn-primary" href="https://jumper.xyz/?toChain=4663" target="_blank" rel="noopener" data-testid="link-jumper-rh">Bridge ETH · Jumper</a>
+        <a class="btn btn-ghost" href="https://relay.link/bridge?toChainId=4663" target="_blank" rel="noopener" data-testid="link-relay-rh">Bridge ETH · Relay</a>
+        <a class="btn btn-ghost" href="https://portal.arbitrum.io/bridge?destinationChain=robinhood-chain" target="_blank" rel="noopener" data-testid="link-arb-portal-rh">Arbitrum portal</a>
+      </div>
+    </div>
+
+    <div class="fund-path">
+      <div class="fund-path-title">2 · Orphan Solana token (pump / no RH peer)</div>
+      <p class="fund-path-body">An orphan mint <strong>cannot</strong> teleport 1:1 onto Robinhood. No-thinking cash-out: sell it to SOL on Jupiter, then bridge ETH (step 1). Same value, usable on RH.</p>
+      <div class="entry" style="margin-top:var(--space-2)">
+        <input id="solMintInput" placeholder="Paste Solana mint address" spellcheck="false" autocomplete="off" data-testid="input-sol-mint">
+        <button class="btn btn-primary" id="solSellBtn" type="button" data-testid="button-sol-sell-jupiter">Sell on Jupiter → SOL</button>
+      </div>
+      <p id="solMintErr" class="banner err hidden" style="margin-top:var(--space-2)" data-testid="banner-sol-mint"></p>
+      <div class="fund-actions" style="margin-top:var(--space-3)">
+        <a class="btn btn-ghost" href="https://jumper.xyz/?toChain=4663" target="_blank" rel="noopener" data-testid="link-jumper-after-sol">Then bridge ETH to Robinhood</a>
+        <a class="btn btn-ghost" href="builders.html" data-testid="link-superchain-from-fund">Want the same ticker on RH? Super Chain (OFT)</a>
+      </div>
+      <p class="fund-path-note">Super Chain wires LayerZero peers <em>before</em> public trading so supply is one mesh — it is not a bridge of an existing orphan mint.</p>
+    </div>
+  </section>
+
   <section class="card trust" aria-label="How trust works">
     <h2>Why you can trust this</h2>
     <div class="tline">
