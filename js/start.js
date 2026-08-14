@@ -202,13 +202,39 @@
   }
   function walletErrMsg(e) {
     if (!e) return 'Unknown wallet error';
+    var msg = (e.message || String(e));
+    var low = msg.toLowerCase();
     if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
       return 'You rejected the wallet request. Click Connect wallet to try again.';
     }
-    if (e.code === -32002) {
-      return 'A wallet popup is already open — check your wallet extension icon.';
+    if (e.code === -32002 || low.indexOf('already processing') !== -1 || low.indexOf('already pending') !== -1 || (low.indexOf('unlock') !== -1 && low.indexOf('wait') !== -1)) {
+      return 'Your wallet is still unlocking or a popup is already open. Open MetaMask/Rabby, finish Unlock/Connect, wait a second, then tap Connect wallet again.';
     }
-    return e.message || String(e);
+    return msg;
+  }
+  function isUnlockBusy(e) {
+    if (!e) return false;
+    var low = ((e.message) || '').toLowerCase();
+    return e.code === -32002 || low.indexOf('already processing') !== -1 || low.indexOf('already pending') !== -1 || (low.indexOf('unlock') !== -1 && low.indexOf('wait') !== -1);
+  }
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+  function requestAccounts(provider, attempt) {
+    attempt = attempt || 0;
+    return provider.request({ method: 'eth_accounts' }).then(function (existing) {
+      if (existing && existing[0]) return existing;
+      return provider.request({ method: 'eth_requestAccounts' });
+    }).catch(function (e) {
+      if (isUnlockBusy(e) && attempt < 4) {
+        setWalletUi('warn', 'Unlock wallet…', 'Waiting for wallet…');
+        showNotConnectedBanner('<strong>Waiting for your wallet.</strong> Finish Unlock/Connect in the extension popup — retrying automatically…');
+        return sleep(1400 + attempt * 400).then(function () {
+          return requestAccounts(provider, attempt + 1);
+        });
+      }
+      throw e;
+    });
   }
   function noWalletHelp() {
     var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
@@ -338,10 +364,16 @@
     });
   }
 
+  var connectInFlight = null;
   function connectWith(provider) {
     if (!provider) return openNoWalletHelp();
+    if (connectInFlight) {
+      showNotConnectedBanner('<strong>Connect already in progress.</strong> Check your wallet popup (Unlock / Connect), or wait a moment.');
+      return connectInFlight;
+    }
     eth = provider;
-    return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
+    setWalletUi('warn', 'Connecting…', 'Connecting…');
+    connectInFlight = requestAccounts(provider).then(function (accts) {
       if (!accts || !accts[0]) throw new Error('No account returned from wallet.');
       S.wallet.addr = accts[0];
       S.wallet.chainOk = false;
@@ -362,10 +394,17 @@
         return false;
       });
     }).catch(function (e) {
-      $('walletBanner').textContent = walletErrMsg(e);
-      $('walletBanner').classList.remove('hidden');
+      updateWalletBtn();
+      showNotConnectedBanner('<strong>Not connected.</strong> ' + esc(walletErrMsg(e)));
       return false;
+    }).then(function (ok) {
+      connectInFlight = null;
+      return ok;
+    }, function (err) {
+      connectInFlight = null;
+      throw err;
     });
+    return connectInFlight;
   }
 
   function chooseWalletThenConnect() {
