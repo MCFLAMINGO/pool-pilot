@@ -36,7 +36,7 @@
 
   var S = {
     ethUsd: null,
-    wallet: { addr: null },
+    wallet: { addr: null, chainOk: false },
     mcflBal: null,
     busy: false,
     paid: { desk: false, buybot: false, marketer: false }
@@ -212,11 +212,107 @@
   }
   function noWalletHelp() {
     var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-    var mm = 'https://metamask.app.link/dapp/' + location.host + '/start';
     if (mobile) {
-      return 'No browser wallet detected. On phone, open this site in your wallet’s in-app browser (e.g. <a href="' + mm + '">MetaMask</a>), or use desktop Chrome/Brave with any injected wallet.';
+      return 'Phone browser has no wallet plugin. Tap <strong>Connect wallet</strong> for open-in-wallet links.';
     }
-    return 'No wallet found in this window. Open <strong>poolpilot.xyz/start</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …). X/Telegram in-app browsers usually cannot connect.';
+    return 'No wallet found in this window. Open <strong>poolpilot.xyz/start</strong> in a desktop browser with any injected wallet.';
+  }
+  function setWalletUi(mode, statusText, btnText) {
+    var status = $('walletStatus');
+    var statusLabel = $('walletStatusLabel');
+    var b = $('walletBtn');
+    if (status) {
+      status.className = 'wallet-status is-' + mode;
+      if (statusLabel) statusLabel.textContent = statusText;
+    }
+    if (b) {
+      b.className = 'btn wallet-' + (mode === 'on' ? 'on' : mode === 'warn' ? 'warn' : 'off');
+      b.textContent = btnText;
+      b.setAttribute('aria-pressed', mode === 'off' ? 'false' : 'true');
+    }
+  }
+  function updateWalletBtn() {
+    if (!S.wallet.addr) {
+      setWalletUi('off', 'Not connected', 'Connect wallet');
+      return;
+    }
+    var addr = short(S.wallet.addr);
+    if (S.wallet.chainOk === false) setWalletUi('warn', 'Wrong network', addr);
+    else setWalletUi('on', 'Connected', addr);
+  }
+  function showNotConnectedBanner(msg) {
+    var b = $('walletBanner');
+    b.className = 'banner warn';
+    b.innerHTML = msg || ('<strong>Not connected.</strong> ' + noWalletHelp());
+    b.classList.remove('hidden');
+  }
+  function showConnectedBanner() {
+    var b = $('walletBanner');
+    b.className = 'banner wallet-connected';
+    b.innerHTML = '<strong>Connected.</strong> ' + esc(short(S.wallet.addr)) +
+      ' · Robinhood Chain' +
+      ' <button type="button" id="disconnectBtnInline" style="margin-left:8px;color:var(--accent);background:none;border:none;font-weight:700;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm)">Disconnect</button>';
+    b.classList.remove('hidden');
+    var d = $('disconnectBtnInline');
+    if (d) d.addEventListener('click', disconnectWallet);
+  }
+  function disconnectWallet() {
+    S.wallet.addr = null;
+    S.wallet.chainOk = false;
+    eth = null;
+    updateWalletBtn();
+    showNotConnectedBanner('<strong>Not connected.</strong> Tap <strong>Connect wallet</strong> to share your address.');
+    closeModal();
+  }
+  function openConnectedSheet() {
+    openModal(
+      '<h3>Wallet connected</h3>' +
+      '<p class="msub">Status: <strong>' + (S.wallet.chainOk ? 'Connected · Robinhood Chain' : 'Connected · wrong network') + '</strong></p>' +
+      '<div class="prow"><span class="k">Address</span><span class="v mono" style="word-break:break-all">' + esc(S.wallet.addr) + '</span></div>' +
+      (S.wallet.chainOk ? '' : '<button class="btn btn-primary btn-lg" id="switchRhBtn" style="margin-top:8px">Switch to Robinhood Chain</button>') +
+      '<button class="btn btn-ghost btn-lg" id="disconnectGo" style="margin-top:8px">Disconnect</button>' +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Close</button>'
+    );
+    if ($('switchRhBtn')) {
+      $('switchRhBtn').addEventListener('click', function () {
+        ensureChain().then(function () {
+          S.wallet.chainOk = true;
+          updateWalletBtn();
+          showConnectedBanner();
+          refreshMcfl();
+          closeModal();
+        }).catch(function (e) {
+          $('walletBanner').textContent = walletErrMsg(e);
+          $('walletBanner').classList.remove('hidden');
+        });
+      });
+    }
+    $('disconnectGo').addEventListener('click', disconnectWallet);
+    $('cxNo').addEventListener('click', closeModal);
+  }
+  function isPhone() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  }
+  function openNoWalletHelp() {
+    var url = location.origin + (location.pathname || '/') + (location.search || '') + (location.hash || '');
+    var enc = encodeURIComponent(url);
+    var mm = 'https://metamask.app.link/dapp/' + location.host + '/start';
+    var cb = 'https://go.cb-w.com/dapp?cb_url=' + enc;
+    var trust = 'https://link.trustwallet.com/open_url?coin_id=60&url=' + enc;
+    openModal(
+      '<h3>Wallet not connected</h3>' +
+      '<p class="msub">Status: <strong>Not connected</strong>. ' +
+      (isPhone() ? 'Open this page inside your wallet app.' : 'Install a browser wallet, then Connect.') + '</p>' +
+      (isPhone()
+        ? '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + mm + '">Open in MetaMask</a>' +
+          '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + cb + '">Open in Coinbase Wallet</a>' +
+          '<a class="btn btn-ghost btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + trust + '">Open in Trust Wallet</a>'
+        : '') +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
+    );
+    $('cxNo').addEventListener('click', closeModal);
+    showNotConnectedBanner();
+    return Promise.resolve(false);
   }
 
   function ensureChain() {
@@ -243,24 +339,26 @@
   }
 
   function connectWith(provider) {
-    if (!provider) {
-      $('walletBanner').innerHTML = noWalletHelp();
-      $('walletBanner').classList.remove('hidden');
-      return Promise.resolve(false);
-    }
+    if (!provider) return openNoWalletHelp();
     eth = provider;
     return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
       if (!accts || !accts[0]) throw new Error('No account returned from wallet.');
       S.wallet.addr = accts[0];
-      $('walletBtn').textContent = short(S.wallet.addr);
+      S.wallet.chainOk = false;
+      updateWalletBtn();
       return ensureChain().then(function () {
-        $('walletBanner').classList.add('hidden');
+        S.wallet.chainOk = true;
+        updateWalletBtn();
+        showConnectedBanner();
         return refreshMcfl().then(function () { return true; });
       }).catch(function (e) {
-        $('walletBanner').innerHTML = 'Connected as ' + short(S.wallet.addr) +
-          ', but <strong>Robinhood Chain (4663)</strong> is required. Approve Add/Switch network in your wallet, then click Connect again. ' +
-          esc(walletErrMsg(e));
-        $('walletBanner').classList.remove('hidden');
+        S.wallet.chainOk = false;
+        updateWalletBtn();
+        var b = $('walletBanner');
+        b.className = 'banner warn';
+        b.innerHTML = '<strong>Connected — wrong network.</strong> ' + esc(short(S.wallet.addr)) +
+          ' needs Robinhood Chain (4663). ' + esc(walletErrMsg(e));
+        b.classList.remove('hidden');
         return false;
       });
     }).catch(function (e) {
@@ -648,7 +746,10 @@
   }
 
   /* ---------------- wire UI ---------------- */
-  $('walletBtn').addEventListener('click', connect);
+  $('walletBtn').addEventListener('click', function () {
+    if (S.wallet.addr) openConnectedSheet();
+    else connect();
+  });
   $('getMcflBtn').addEventListener('click', openGetMcfl);
   $('scrollStageBtn').addEventListener('click', function () { $('stageCard').scrollIntoView({ behavior: 'smooth' }); });
   $('saveStageBtn').addEventListener('click', function () { saveStage(); saveAcks(); });
@@ -674,9 +775,11 @@
   renderPays();
   L.fetchEthUsd().then(function (u) { S.ethUsd = u; }).catch(function () { /* ignore */ });
 
-  if (!hasWallet()) {
-    $('walletBanner').innerHTML = '<strong>Read-only mode.</strong> ' + noWalletHelp();
-    $('walletBanner').classList.remove('hidden');
+  updateWalletBtn();
+  if (!S.wallet.addr) {
+    showNotConnectedBanner('<strong>Not connected.</strong> ' + (hasWallet()
+      ? 'Tap <strong>Connect wallet</strong> to share your address.'
+      : noWalletHelp()));
   }
 
   if (location.hash === '#get-mcfl') openGetMcfl();

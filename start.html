@@ -35,7 +35,13 @@
     </a>
     <div class="spacer"></div>
     <button class="btn btn-primary" id="getMcflBtn" data-testid="button-get-mcfl">Get MCFL</button>
-    <button class="btn btn-ghost" id="walletBtn" data-testid="button-connect-wallet">Connect wallet</button>
+    <div class="wallet-slot" data-testid="wallet-slot">
+      <div id="walletStatus" class="wallet-status is-off" data-testid="wallet-status" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="walletStatusLabel">Not connected</span>
+      </div>
+      <button class="btn btn-primary" id="walletBtn" data-testid="button-connect-wallet" aria-pressed="false">Connect wallet</button>
+    </div>
   </header>
 
   <section class="card hero-desk" aria-label="North star">

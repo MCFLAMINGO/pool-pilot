@@ -10,7 +10,7 @@
     ethUsd: null,
     info: null,
     state: null,
-    wallet: { addr: null, provider: null },
+    wallet: { addr: null, provider: null, chainOk: false },
     receipts: [],
     busy: false
   };
@@ -132,18 +132,123 @@
     var path = (location.pathname || '/').replace(/\/$/, '') || '';
     var mm = 'https://metamask.app.link/dapp/' + location.host + path + '/';
     if (mobile) {
-      return 'No browser wallet detected. On phone, open this site in your wallet’s in-app browser (e.g. <a href="' + mm + '">MetaMask</a>), or use desktop Chrome/Brave with any injected wallet.';
+      return 'Phone browser has no wallet plugin. Tap <strong>Connect wallet</strong> for open-in-wallet links, or open poolpilot.xyz inside MetaMask / Coinbase / Trust.';
     }
-    return 'No wallet found in this window. Open <strong>poolpilot.xyz</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …). X/Telegram in-app browsers usually cannot connect.';
+    return 'No wallet found in this window. Open <strong>poolpilot.xyz</strong> in a desktop browser with any injected wallet (MetaMask, Rabby, Coinbase, Brave, OKX, …).';
+  }
+
+  function setWalletUi(mode, statusText, btnText) {
+    var status = $('walletStatus');
+    var statusLabel = $('walletStatusLabel');
+    var b = $('walletBtn');
+    if (status) {
+      status.className = 'wallet-status is-' + mode;
+      if (statusLabel) statusLabel.textContent = statusText;
+    }
+    if (b) {
+      b.className = 'btn wallet-' + (mode === 'on' ? 'on' : mode === 'warn' ? 'warn' : 'off');
+      b.textContent = btnText;
+      b.setAttribute('aria-pressed', mode === 'off' ? 'false' : 'true');
+      b.setAttribute('aria-label', mode === 'off'
+        ? 'Connect wallet — currently not connected'
+        : (mode === 'on' ? 'Wallet connected' : 'Wallet connected on wrong network') + (S.wallet.addr ? ': ' + S.wallet.addr : ''));
+    }
+    document.documentElement.setAttribute('data-wallet', mode === 'off' ? 'disconnected' : mode === 'on' ? 'connected' : 'wrong-network');
   }
 
   function updateWalletBtn() {
-    var b = $('walletBtn');
-    if (S.wallet.addr) {
-      b.textContent = short(S.wallet.addr) + (isOperator() ? ' · operator' : '');
-    } else {
-      b.textContent = 'Connect wallet';
+    if (!S.wallet.addr) {
+      setWalletUi('off', 'Not connected', 'Connect wallet');
+      return;
     }
+    var addr = short(S.wallet.addr) + (isOperator() ? ' · op' : '');
+    if (S.wallet.chainOk === false) {
+      setWalletUi('warn', 'Wrong network', addr);
+      return;
+    }
+    setWalletUi('on', 'Connected', addr);
+  }
+
+  function showNotConnectedBanner(msg) {
+    var b = $('walletBanner');
+    b.className = 'banner warn';
+    b.innerHTML = msg || ('<strong>Not connected.</strong> ' + noWalletHelp());
+    b.classList.remove('hidden');
+  }
+
+  function showConnectedBanner() {
+    var b = $('walletBanner');
+    b.className = 'banner wallet-connected';
+    b.innerHTML = '<strong>Connected.</strong> ' + esc(short(S.wallet.addr)) +
+      ' · Robinhood Chain' +
+      ' <button type="button" id="disconnectBtnInline" data-testid="button-disconnect-inline" style="margin-left:8px;color:var(--accent);background:none;border:none;font-weight:700;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm)">Disconnect</button>';
+    b.classList.remove('hidden');
+    var d = $('disconnectBtnInline');
+    if (d) d.addEventListener('click', disconnectWallet);
+  }
+
+  function disconnectWallet() {
+    S.wallet.addr = null;
+    S.wallet.provider = null;
+    S.wallet.chainOk = false;
+    eth = null;
+    updateWalletBtn();
+    showNotConnectedBanner('<strong>Not connected.</strong> Tap <strong>Connect wallet</strong> to share your address.');
+    closeModal();
+  }
+
+  function openConnectedSheet() {
+    openModal(
+      '<h3>Wallet connected</h3>' +
+      '<p class="msub">Pool Pilot will use this address for any signed moves. Nothing moves until you approve each transaction.</p>' +
+      '<div class="prow"><span class="k">Status</span><span class="v">' + (S.wallet.chainOk ? 'Connected · Robinhood Chain' : 'Connected · wrong network') + '</span></div>' +
+      '<div class="prow"><span class="k">Address</span><span class="v mono" style="word-break:break-all">' + esc(S.wallet.addr) + '</span></div>' +
+      (S.wallet.chainOk ? '' : '<button class="btn btn-primary btn-lg" id="switchRhBtn" style="margin-top:8px" data-testid="button-switch-rh">Switch to Robinhood Chain</button>') +
+      '<a class="btn btn-ghost btn-lg" style="margin-top:8px;display:block;text-align:center;text-decoration:none" href="' + CFG.EXPLORER + '/address/' + encodeURIComponent(S.wallet.addr) + '" target="_blank" rel="noopener">View on explorer</a>' +
+      '<button class="btn btn-ghost btn-lg" id="disconnectGo" style="margin-top:8px" data-testid="button-disconnect">Disconnect</button>' +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Close</button>'
+    );
+    if ($('switchRhBtn')) {
+      $('switchRhBtn').addEventListener('click', function () {
+        ensureChain().then(function () {
+          S.wallet.chainOk = true;
+          updateWalletBtn();
+          showConnectedBanner();
+          closeModal();
+        }).catch(function (e) {
+          showErr(walletErrMsg(e));
+        });
+      });
+    }
+    $('disconnectGo').addEventListener('click', disconnectWallet);
+    $('cxNo').addEventListener('click', closeModal);
+  }
+
+  function isPhone() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  }
+  function openNoWalletHelp() {
+    var url = location.origin + (location.pathname || '/') + (location.search || '') + (location.hash || '');
+    var enc = encodeURIComponent(url);
+    var path = (location.pathname || '/').replace(/\/$/, '') || '';
+    var mm = 'https://metamask.app.link/dapp/' + location.host + path + '/';
+    var cb = 'https://go.cb-w.com/dapp?cb_url=' + enc;
+    var trust = 'https://link.trustwallet.com/open_url?coin_id=60&url=' + enc;
+    openModal(
+      '<h3>Wallet not connected</h3>' +
+      '<p class="msub">Status: <strong>Not connected</strong>. ' + (isPhone()
+        ? 'Open Pool Pilot inside <em>your</em> wallet app, then Connect again.'
+        : 'Install any browser wallet, then tap Connect.') + '</p>' +
+      (isPhone()
+        ? '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + mm + '">Open in MetaMask</a>' +
+          '<a class="btn btn-primary btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + cb + '">Open in Coinbase Wallet</a>' +
+          '<a class="btn btn-ghost btn-lg" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="' + trust + '">Open in Trust Wallet</a>'
+        : '') +
+      '<button class="btn btn-ghost btn-lg" id="cxNo" style="margin-top:8px">Not now</button>'
+    );
+    $('cxNo').addEventListener('click', closeModal);
+    showNotConnectedBanner();
+    return Promise.resolve(false);
   }
 
   function ensureChain() {
@@ -176,39 +281,56 @@
     if (!p.on) return;
     p.on('accountsChanged', function (a) {
       S.wallet.addr = a && a[0] ? a[0] : null;
-      if (!S.wallet.addr) S.wallet.provider = null;
+      if (!S.wallet.addr) {
+        S.wallet.provider = null;
+        S.wallet.chainOk = false;
+        showNotConnectedBanner('<strong>Not connected.</strong> Wallet disconnected or switched away.');
+      } else {
+        showConnectedBanner();
+      }
       updateWalletBtn();
       if (S.info) loadState();
     });
-    p.on('chainChanged', function () {
+    p.on('chainChanged', function (id) {
+      S.wallet.chainOk = isRobinhood(id);
+      updateWalletBtn();
+      if (S.wallet.addr && S.wallet.chainOk) showConnectedBanner();
+      else if (S.wallet.addr) {
+        var b = $('walletBanner');
+        b.className = 'banner warn';
+        b.innerHTML = '<strong>Wrong network.</strong> Connected as ' + esc(short(S.wallet.addr)) + ' — switch to Robinhood Chain (4663).';
+        b.classList.remove('hidden');
+      }
       if (S.wallet.addr && S.info) loadState();
     });
   }
 
   function connectWith(provider) {
-    if (!provider) {
-      $('walletBanner').innerHTML = noWalletHelp();
-      $('walletBanner').classList.remove('hidden');
-      return Promise.resolve(false);
-    }
+    if (!provider) return openNoWalletHelp();
     eth = provider;
     bindWalletEvents(provider);
     return provider.request({ method: 'eth_requestAccounts' }).then(function (accts) {
       if (!accts || !accts[0]) throw new Error('No account returned from wallet.');
-      // Address comes from the visitor’s wallet — we never set a default account.
       S.wallet.addr = accts[0];
       S.wallet.provider = new ethers.providers.Web3Provider(provider, 'any');
+      S.wallet.chainOk = false;
       updateWalletBtn();
       return ensureChain().then(function () {
-        $('walletBanner').classList.add('hidden');
+        S.wallet.chainOk = true;
+        updateWalletBtn();
+        showConnectedBanner();
         showErr(null);
         if (S.info) loadState();
         return true;
       }).catch(function (e) {
-        $('walletBanner').innerHTML = 'Connected as ' + short(S.wallet.addr) +
-          ', but <strong>Robinhood Chain (4663)</strong> is required. Approve Add/Switch network in your wallet, then click Connect again. ' +
+        S.wallet.chainOk = false;
+        updateWalletBtn();
+        var b = $('walletBanner');
+        b.className = 'banner warn';
+        b.innerHTML = '<strong>Connected — wrong network.</strong> ' + esc(short(S.wallet.addr)) +
+          ' needs <strong>Robinhood Chain (4663)</strong>. Approve Add/Switch in your wallet, then tap the address button. ' +
           esc(walletErrMsg(e));
-        $('walletBanner').classList.remove('hidden');
+        b.classList.remove('hidden');
         return false;
       });
     }).catch(function (e) {
@@ -270,7 +392,10 @@
     $('cxNo').addEventListener('click', closeModal);
     return Promise.resolve(false);
   }
-  $('walletBtn').addEventListener('click', function () { if (!S.wallet.addr) connectExplained(); });
+  $('walletBtn').addEventListener('click', function () {
+    if (S.wallet.addr) openConnectedSheet();
+    else connectExplained();
+  });
 
   function securityNotes() {
     openModal('<h3>Security notes</h3>' +
@@ -456,11 +581,14 @@
 
   function walletGate() {
     if (!hasWallet()) {
-      openModal('<h3>Wallet needed</h3><p class="msub">' + noWalletHelp() + ' Reading pool state works fine without one.</p><button class="btn btn-ghost btn-lg" id="wgClose" data-testid="button-wallet-gate-close">Close</button>');
-      $('wgClose').addEventListener('click', closeModal);
+      openNoWalletHelp();
       return false;
     }
     if (!S.wallet.addr) { connectExplained(); return false; }
+    if (S.wallet.chainOk === false) {
+      openConnectedSheet();
+      return false;
+    }
     return true;
   }
 
@@ -793,9 +921,11 @@
   }
 
   /* ---------------- boot ---------------- */
-  if (!hasWallet()) {
-    $('walletBanner').innerHTML = '<strong>Read-only mode.</strong> ' + noWalletHelp();
-    $('walletBanner').classList.remove('hidden');
+  updateWalletBtn();
+  if (!S.wallet.addr) {
+    showNotConnectedBanner('<strong>Not connected.</strong> ' + (hasWallet()
+      ? 'Tap <strong>Connect wallet</strong> to share your address. Pool checks work either way.'
+      : noWalletHelp()));
   }
   var h = (location.hash || '').slice(1);
   if (/^0x[0-9a-fA-F]{40}$/.test(h)) loadToken(h);
