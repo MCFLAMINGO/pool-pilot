@@ -25,6 +25,10 @@
     shopify: 'https://www.shopify.com/',
     gemini: 'https://gemini.google.com/app',
     rhBridge: 'https://portal.arbitrum.io/bridge?destinationChain=robinhood-chain',
+    jumperRh: 'https://jumper.xyz/?toChain=4663',
+    relayRh: 'https://relay.link/bridge?toChainId=4663',
+    jupiterSwap: 'https://jup.ag/swap/SOL',
+    fundRh: 'index.html#fundCard',
     solanaMint: 'https://solscan.io/token/CdmKJqhHEkqTr1BFBdcoBNHQvh2BEqLap6ivt2b2pump'
   };
 
@@ -634,7 +638,19 @@
         why: 'Your start money becomes half ETH and half token in the pool — you’re building the book. No real price until ETH fills the seed target. Serious floor ~$5k–$15k concentrated near spot.',
         actions: [
           { label: 'Open Pool Pilot (seed / deepen book)', href: LINKS.poolPilot },
-          { label: 'Bridge ETH to Robinhood', href: LINKS.rhBridge, external: true }
+          { label: 'Bridge ETH · Jumper', href: LINKS.jumperRh, external: true },
+          { label: 'Bridge ETH · Relay', href: LINKS.relayRh, external: true }
+        ]
+      },
+      {
+        id: 'orphan-sol',
+        tag: 'Fund RH',
+        title: 'Orphan Solana token → value on RH',
+        why: 'A pump / Smithii mint with no Robinhood peer cannot teleport 1:1. Cash out on Jupiter (mint → SOL), then bridge ETH to chain 4663. Same value, usable for gas and LP. Super Chain is for launching OFT peers — not moving an existing orphan.',
+        actions: [
+          { label: 'Paste mint in Pool Pilot fund card', href: LINKS.fundRh },
+          { label: 'Open Jupiter', href: LINKS.jupiterSwap, external: true },
+          { label: 'Then bridge ETH · Jumper', href: LINKS.jumperRh, external: true }
         ]
       },
       {

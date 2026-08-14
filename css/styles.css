@@ -162,6 +162,29 @@ body {
   #walletBtn { padding: 0.55rem 0.7rem; font-size: var(--text-xs); }
 }
 
+/* Bring value to Robinhood */
+.fund-path {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-3);
+}
+.fund-path:first-of-type { margin-top: 0; }
+.fund-path-title {
+  font-weight: 700; font-size: var(--text-base); letter-spacing: -0.01em;
+  margin-bottom: var(--space-2);
+}
+.fund-path-body {
+  font-size: var(--text-sm); color: var(--text-muted); margin: 0 0 var(--space-3);
+}
+.fund-path-note {
+  font-size: var(--text-xs); color: var(--text-faint); margin: var(--space-3) 0 0;
+}
+.fund-actions {
+  display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center;
+}
+.fund-actions .btn { text-decoration: none; }
+
 /* token entry */
 .entry { display: flex; gap: var(--space-2); }
 .entry input {

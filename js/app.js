@@ -972,6 +972,34 @@
     }).join('');
   }
 
+  /* ---------------- fund RH: orphan Solana → Jupiter → bridge ETH ---------------- */
+  function isSolMint(s) {
+    s = String(s || '').trim();
+    if (s.length < 32 || s.length > 44) return false;
+    return /^[1-9A-HJ-NP-Za-km-z]+$/.test(s);
+  }
+  function openOrphanSolOnJupiter() {
+    var mint = ($('solMintInput') && $('solMintInput').value || '').trim();
+    var err = $('solMintErr');
+    if (!err) return;
+    if (!isSolMint(mint)) {
+      err.classList.remove('hidden');
+      err.textContent = 'Paste a Solana mint (base58, 32–44 chars). Orphan tokens cannot teleport 1:1 to Robinhood.';
+      return;
+    }
+    err.classList.add('hidden');
+    err.textContent = '';
+    window.open('https://jup.ag/swap/' + encodeURIComponent(mint) + '-SOL', '_blank', 'noopener');
+  }
+  if ($('solSellBtn')) {
+    $('solSellBtn').addEventListener('click', openOrphanSolOnJupiter);
+  }
+  if ($('solMintInput')) {
+    $('solMintInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') openOrphanSolOnJupiter();
+    });
+  }
+
   /* ---------------- boot ---------------- */
   updateWalletBtn();
   if (!S.wallet.addr) {
@@ -980,5 +1008,8 @@
       : noWalletHelp()));
   }
   var h = (location.hash || '').slice(1);
-  if (/^0x[0-9a-fA-F]{40}$/.test(h)) loadToken(h);
+  if (h === 'fundCard' || h === 'fund') {
+    var fc = $('fundCard');
+    if (fc) fc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (/^0x[0-9a-fA-F]{40}$/.test(h)) loadToken(h);
 })();
