@@ -11,7 +11,11 @@
     "test:fork": "node test/fork-sims.js",
     "test:fee": "node test/fee-lp-sim.js",
     "test:sandwich": "node test/sandwich-sim.js",
-    "test:all-fork": "node test/fork-sims.js && node test/fee-lp-sim.js && node test/sandwich-sim.js"
+    "test:all-fork": "node test/fork-sims.js && node test/fee-lp-sim.js && node test/sandwich-sim.js",
+    "test:swap-quote": "node test/swap-quote.js",
+    "outreach": "node agents/outreach/run.js",
+    "outreach:tick": "node agents/outreach/run.js --tick",
+    "outreach:live": "node agents/outreach/run.js --tick --live"
   },
   "dependencies": {
     "ethers": "5.7.2"

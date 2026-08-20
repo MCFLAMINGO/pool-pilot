@@ -55,6 +55,16 @@
     </div>
   </header>
 
+  <section class="card" aria-label="Swap on Robinhood" style="margin-bottom:var(--space-4)">
+    <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;justify-content:space-between">
+      <div>
+        <strong style="display:block;margin-bottom:2px">Need ETH ↔ token?</strong>
+        <span style="font-size:var(--text-sm);color:var(--text-muted)">No-thinking swap on Robinhood Chain · 0.30% protocol fee.</span>
+      </div>
+      <a class="btn btn-primary" href="/swap" data-testid="link-swap">Open swap</a>
+    </div>
+  </section>
+
   <section class="card" aria-label="Start your token" style="margin-bottom:var(--space-4)">
     <p style="font-size:var(--text-sm);color:var(--text-muted);margin:0 0 var(--space-3)">You’re building a market, not winning a lottery.</p>
     <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;justify-content:space-between">
@@ -141,6 +151,7 @@
       </div>
       <p id="solMintErr" class="banner err hidden" style="margin-top:var(--space-2)" data-testid="banner-sol-mint"></p>
       <div class="fund-actions" style="margin-top:var(--space-3)">
+        <a class="btn btn-ghost" href="/swap?out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523" data-testid="link-swap-from-fund">Then buy MCFL on RH swap</a>
         <a class="btn btn-ghost" href="https://jumper.xyz/?toChain=4663" target="_blank" rel="noopener" data-testid="link-jumper-after-sol">Then bridge ETH to Robinhood</a>
         <a class="btn btn-ghost" href="builders.html" data-testid="link-superchain-from-fund">Want the same ticker on RH? Super Chain (OFT)</a>
       </div>
@@ -174,7 +185,7 @@
 
   <footer>
     <p>Pool Pilot is a McFlamingo product. Not financial advice — liquidity provision carries risk, including impermanent loss.</p>
-    <p>You sign everything. We custody nothing. · <a href="/start" data-testid="link-start-footer">Start your token</a> · <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">Blockscout explorer</a> · <a href="builders.html" data-testid="link-builders">Super Chain playbook</a></p>
+    <p>You sign everything. We custody nothing. · <a href="/swap" data-testid="link-swap-footer">Swap</a> · <a href="/start" data-testid="link-start-footer">Start your token</a> · <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">Blockscout explorer</a> · <a href="builders.html" data-testid="link-builders">Super Chain playbook</a></p>
   </footer>
 </div>
 

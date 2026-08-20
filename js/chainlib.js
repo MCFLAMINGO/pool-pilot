@@ -24,6 +24,8 @@
     MCFL: '0x21a91215fbfc4fc002b07cc87698a6fc01aed523',
     TREASURY: '0x1aa92670a4e680081c407e060a3e8bc3d1929a13',
     FEE_USD: 25,
+    /** Pool Pilot swap UI — bps skimmed to treasury before the Uniswap hop (30 = 0.30%). */
+    SWAP_FEE_BPS: 30,
     FEE_TIERS: [10000, 3000, 500, 100],
     SPACING: { 100: 1, 500: 10, 3000: 60, 10000: 200 }
   };
@@ -61,7 +63,9 @@
     'function refundETH() payable'
   ];
   var ROUTER_ABI = [
-    'function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)'
+    'function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)',
+    'function multicall(bytes[] data) payable returns (bytes[] results)',
+    'function unwrapWETH9(uint256 amountMinimum, address recipient) payable'
   ];
 
   var iERC20 = new ethers.utils.Interface(ERC20_ABI);
@@ -503,6 +507,140 @@
     return quoteFeeUsd(provider, ethUsd, CFG.FEE_USD);
   }
 
+  /**
+   * Fee swap (ETH ↔ token with a WETH pool). Skims SWAP_FEE_BPS of amountIn to
+   * TREASURY, then routes the rest through SwapRouter02. User signs every tx —
+   * no Pool Pilot custody contract.
+   *
+   * tokenIn / tokenOut: use 'ETH' for native, or a 0x address (WETH pools only).
+   */
+  function planFeeSwap(provider, opts) {
+    var slipBps = opts.slippageBps == null ? 100 : Number(opts.slippageBps); // 1%
+    var feeBps = opts.feeBps == null ? CFG.SWAP_FEE_BPS : Number(opts.feeBps);
+    if (!isFinite(feeBps) || feeBps < 0 || feeBps > 500) throw new Error('Invalid swap fee.');
+    if (!isFinite(slipBps) || slipBps < 10 || slipBps > 2000) throw new Error('Invalid slippage.');
+
+    var amountInF = Number(opts.amountIn);
+    if (!isFinite(amountInF) || amountInF <= 0) throw new Error('Enter an amount to swap.');
+
+    var rawIn = String(opts.tokenIn || '').trim();
+    var rawOut = String(opts.tokenOut || '').trim();
+    var inIsEth = !rawIn || rawIn.toUpperCase() === 'ETH' || rawIn.toLowerCase() === CFG.WETH.toLowerCase();
+    var outIsEth = !rawOut || rawOut.toUpperCase() === 'ETH' || rawOut.toLowerCase() === CFG.WETH.toLowerCase();
+    if (inIsEth && outIsEth) throw new Error('Pick a token on one side.');
+    if (!inIsEth && !outIsEth) throw new Error('v0 swaps ETH ↔ token only (WETH pools). Sell to ETH first for token→token.');
+
+    var tokenAddr = ethers.utils.getAddress(inIsEth ? rawOut : rawIn);
+    if (tokenAddr.toLowerCase() === CFG.WETH.toLowerCase()) throw new Error('Use ETH for the native side.');
+
+    return discoverPool(provider, tokenAddr).then(function (info) {
+      var decIn = inIsEth ? 18 : info.decimals;
+      var amountIn = ethers.utils.parseUnits(amountInF.toFixed(Math.min(decIn, 8)), decIn);
+      var feeAmt = amountIn.mul(feeBps).div(10000);
+      var swapIn = amountIn.sub(feeAmt);
+      if (swapIn.lte(0)) throw new Error('Amount too small after fee.');
+
+      var quoter = new ethers.Contract(CFG.QUOTER_V2, QUOTER_ABI, provider);
+      var tokenInAddr = inIsEth ? CFG.WETH : tokenAddr;
+      var tokenOutAddr = outIsEth ? CFG.WETH : tokenAddr;
+
+      return quoter.callStatic.quoteExactInputSingle({
+        tokenIn: tokenInAddr,
+        tokenOut: tokenOutAddr,
+        amountIn: swapIn,
+        fee: info.fee,
+        sqrtPriceLimitX96: 0
+      }).then(function (q) {
+        var amountOut = q.amountOut || q[0];
+        var minOut = amountOut.mul(10000 - slipBps).div(10000);
+        var decOut = outIsEth ? 18 : info.decimals;
+        var feeF = parseFloat(ethers.utils.formatUnits(feeAmt, decIn));
+        var swapInF = parseFloat(ethers.utils.formatUnits(swapIn, decIn));
+        var outF = parseFloat(ethers.utils.formatUnits(amountOut, decOut));
+
+        return {
+          info: info,
+          feeBps: feeBps,
+          feeAmt: feeAmt,
+          feeF: feeF,
+          amountIn: amountIn,
+          amountInF: amountInF,
+          swapIn: swapIn,
+          swapInF: swapInF,
+          amountOut: amountOut,
+          amountOutF: outF,
+          minOut: minOut,
+          inIsEth: inIsEth,
+          outIsEth: outIsEth,
+          symbolIn: inIsEth ? 'ETH' : info.symbol,
+          symbolOut: outIsEth ? 'ETH' : info.symbol,
+          buildTxs: function (recipient) {
+            if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Connect a wallet first.');
+            var txs = [];
+            if (inIsEth) {
+              if (feeAmt.gt(0)) {
+                txs.push({
+                  label: 'Protocol fee ' + feeF.toFixed(6) + ' ETH → treasury',
+                  to: CFG.TREASURY,
+                  value: feeAmt.toHexString(),
+                  data: '0x'
+                });
+              }
+              var buyParams = {
+                tokenIn: CFG.WETH,
+                tokenOut: tokenAddr,
+                fee: info.fee,
+                recipient: recipient,
+                amountIn: swapIn,
+                amountOutMinimum: minOut,
+                sqrtPriceLimitX96: 0
+              };
+              txs.push({
+                label: 'Swap ' + swapInF.toFixed(6) + ' ETH → ' + info.symbol,
+                to: CFG.ROUTER02,
+                value: swapIn.toHexString(),
+                data: iRouter.encodeFunctionData('exactInputSingle', [buyParams])
+              });
+            } else {
+              if (feeAmt.gt(0)) {
+                txs.push({
+                  label: 'Protocol fee ' + feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + info.symbol + ' → treasury',
+                  to: tokenAddr,
+                  value: '0x0',
+                  data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, feeAmt])
+                });
+              }
+              txs.push({
+                label: 'Approve ' + info.symbol + ' for Uniswap router',
+                to: tokenAddr,
+                value: '0x0',
+                data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, swapIn])
+              });
+              var sellParams = {
+                tokenIn: tokenAddr,
+                tokenOut: CFG.WETH,
+                fee: info.fee,
+                recipient: CFG.ROUTER02,
+                amountIn: swapIn,
+                amountOutMinimum: minOut,
+                sqrtPriceLimitX96: 0
+              };
+              var swapData = iRouter.encodeFunctionData('exactInputSingle', [sellParams]);
+              var unwrapData = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
+              txs.push({
+                label: 'Swap ' + info.symbol + ' → ETH',
+                to: CFG.ROUTER02,
+                value: '0x0',
+                data: iRouter.encodeFunctionData('multicall', [[swapData, unwrapData]])
+              });
+            }
+            return txs;
+          }
+        };
+      });
+    });
+  }
+
   // Build an ETH → MCFL swap via SwapRouter02 (user signs; we never custody).
   function planBuyMcfl(provider, ethAmountF) {
     var ethInF = Number(ethAmountF);
@@ -671,6 +809,7 @@
     quoteFee: quoteFee,
     quoteFeeUsd: quoteFeeUsd,
     planBuyMcfl: planBuyMcfl,
+    planFeeSwap: planFeeSwap,
     payFeeWithEthTx: payFeeWithEthTx,
     payFeeWithMcflTx: payFeeWithMcflTx,
     priceOfTokenInEth: priceOfTokenInEth,

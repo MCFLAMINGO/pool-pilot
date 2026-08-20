@@ -7,6 +7,7 @@ You paste a token address. Pool Pilot reads the pool live from chain and tells y
 It holds nothing. There is no Pool Pilot contract. Every write goes directly to Uniswap v3's audited `NonfungiblePositionManager`.
 
 **Live:** [poolpilot.xyz](https://poolpilot.xyz)
+**Swap:** [poolpilot.xyz/swap](https://poolpilot.xyz/swap) — ETH ↔ token on Robinhood Chain (0.30% protocol fee to treasury).
 **Start your token:** [poolpilot.xyz/start](https://poolpilot.xyz/start) — a Pool Pilot mode for serious creators (Stage pack, rails, MCFL-only platform fees). Same product as the liquidity copilot; different door.
 **Chain:** Robinhood Chain (chain ID `4663`) · [Blockscout explorer](https://robinhoodchain.blockscout.com)
 
@@ -26,9 +27,12 @@ Zero build step. Three files of application code, one CDN dependency.
 
 ```
 index.html      markup + strict Content-Security-Policy
+swap.html       fee swap UI (ETH ↔ token)
 css/styles.css  design system, light/dark
 js/chainlib.js  chain library — all reads, all transaction construction (universal: Node + browser)
-js/app.js       UI layer only — rendering, modals, wallet plumbing
+js/app.js       LP UI layer
+js/swap.js      swap UI layer
+agents/outreach/  rate-limited X + Telegram poster (dry-run by default)
 test/           Node test suites that exercise chainlib.js against a mainnet fork
 ```
 
