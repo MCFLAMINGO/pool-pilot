@@ -1,0 +1,25 @@
+{
+  "x": {
+    "enabled": true,
+    "note": "Posts go to the authenticated X account. No reply spam."
+  },
+  "telegram": {
+    "enabled": true,
+    "channels": [
+      {
+        "id": "@YOUR_CHANNEL_OR_NUMERIC_ID",
+        "label": "example-own-channel",
+        "kinds": ["broadcast"]
+      }
+    ],
+    "dms": [
+      {
+        "id": "123456789",
+        "label": "example-opt-in-user",
+        "kinds": ["outreach"],
+        "note": "Only people who asked / paid / opted in"
+      }
+    ]
+  },
+  "campaign": "fee-swap-launch"
+}

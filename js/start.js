@@ -10,6 +10,7 @@
 
   var LINKS = {
     uniswapMcfl: 'https://app.uniswap.org/swap?chain=robinhood&inputCurrency=NATIVE&outputCurrency=0x21a91215fbfc4fc002b07cc87698a6fc01aed523',
+    poolSwapMcfl: 'swap.html?out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523',
     jupiterMcfl: 'https://jup.ag/swap/SOL-CdmKJqhHEkqTr1BFBdcoBNHQvh2BEqLap6ivt2b2pump',
     mcflExplorer: CFG.EXPLORER + '/token/' + CFG.MCFL,
     poolPilot: 'index.html',
@@ -487,6 +488,7 @@
       '<div id="buyErr"></div>' +
       '<button class="btn btn-primary btn-lg" id="buyQuoteBtn" data-testid="button-quote-mcfl">Refresh quote</button>' +
       '<button class="btn btn-primary btn-lg" id="buyGoBtn" style="margin-top:8px" data-testid="button-buy-mcfl">Buy MCFL in wallet</button>' +
+      '<a class="btn btn-ghost btn-lg" style="margin-top:8px;display:block;text-align:center" href="' + LINKS.poolSwapMcfl + '" data-testid="link-pool-swap-mcfl">Open Pool Pilot Swap (ETH → MCFL)</a>' +
       '<a class="btn btn-ghost btn-lg" style="margin-top:8px;display:block;text-align:center" href="' + LINKS.uniswapMcfl + '" target="_blank" rel="noopener" data-testid="link-uniswap-mcfl">Open Uniswap (ETH → MCFL)</a>' +
       '<a class="btn btn-ghost btn-lg" style="margin-top:8px;display:block;text-align:center" href="' + LINKS.jupiterMcfl + '" target="_blank" rel="noopener" data-testid="link-jupiter-mcfl">Open Jupiter (Solana MCFL)</a>' +
       '<a class="btn btn-ghost btn-lg" style="margin-top:8px;display:block;text-align:center" href="' + LINKS.rhBridge + '" target="_blank" rel="noopener">Bridge ETH to Robinhood Chain</a>' +
