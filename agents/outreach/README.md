@@ -1,52 +1,39 @@
 # Pool Pilot outreach agents
 
-Rate-limited posters for **your own** X account and **allowlisted** Telegram chats.
-Default mode is **dry-run** — nothing leaves the machine until you pass `--live`.
+**X posts run on gsb-swarm Railway** (same `X_API_*` OAuth as Thread Writer).
+This folder keeps templates + TG allowlist cadence; it does **not** need local X keys.
 
-## Safety cadence (hard caps)
+## X (Railway)
 
-| Channel | Cap | Spacing |
-|---|---|---|
-| X posts | 3 / day | ≥ 4 hours apart |
-| TG channel / group posts | 5 / day | ≥ 90 minutes apart |
-| TG DMs (allowlist only) | 8 / day | ≥ 20 minutes apart |
+On gsb-swarm set:
 
-Cold spam, scraped member lists, and reply-guy floods are out of scope. Targets are a curated JSON allowlist you edit.
+```
+POOL_PILOT_X_OUTREACH=1
+# already present on Railway:
+# X_API_KEY X_API_SECRET X_ACCESS_TOKEN X_ACCESS_TOKEN_SECRET
+```
 
-## Setup
+Worker: `workers/poolPilotXOutreachWorker.js`  
+Status: `GET /api/pool-pilot/x-status`  
+Manual tick: `POST /api/pool-pilot/x-tick` (operator auth)
+
+Cadence: 3/day · ≥4h gap · quiet UTC 03–11.
+
+## Telegram (this repo)
 
 ```bash
-# from repo root
 cp agents/outreach/targets.example.json agents/outreach/targets.json
-# edit targets.json — add YOUR channel ids / handles only
+# allowlisted channel / DM ids only
 
-export TELEGRAM_BOT_TOKEN=...          # bot that can post to allowlisted chats
-export X_BEARER_TOKEN=...              # optional; or use OAuth1 below for posting
-export X_API_KEY=...
-export X_API_SECRET=...
-export X_ACCESS_TOKEN=...
-export X_ACCESS_SECRET=...
+export TELEGRAM_BOT_TOKEN=...
+npm run outreach:tick          # dry-run
+npm run outreach:live -- --channel=tg
 ```
 
-## Commands
+## Optional: trigger Railway X from here
 
 ```bash
-# preview today's queue (no network posts)
-node agents/outreach/run.js
-
-# build + show what would post now
-node agents/outreach/run.js --tick
-
-# actually post (still respects cadence + allowlist)
-node agents/outreach/run.js --tick --live
-
-# only X or only TG
-node agents/outreach/run.js --tick --live --channel=x
-node agents/outreach/run.js --tick --live --channel=tg
+export GSB_SWARM_URL=https://gsb-swarm-production.up.railway.app
+export GSB_OPERATOR_KEY=...    # same operator key gsb-swarm expects
+npm run outreach:live -- --channel=x
 ```
-
-State (last post times, daily counts) lives in `agents/outreach/.state.json` (gitignored).
-
-## Templates
-
-Edit `agents/outreach/templates.js` — swap deep links, fund card, Super Chain. Keep posts useful; rotate copy so cadence stays human.
