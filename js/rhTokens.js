@@ -7,7 +7,6 @@
     { symbol: 'ANSEM', address: '0x521934ea44568164cd3a578e5823dba0de700880' },
     { symbol: 'CASHCAT', address: '0x020bfc650a365f8bb26819deaabf3e21291018b4' },
     { symbol: 'PEPE', address: '0xcdcabf520be369123c36796f9e53680c657f08f0' },
-    { symbol: 'USDG', address: '0x5fc5360d0400a0fd4f2af552add042d716f1d168' },
     { symbol: 'GWOOD', address: '0x24d8657e10af588b12de3e102a116f77b9e35ee8' },
     { symbol: 'RINF', address: '0x1dfb1752d72d379c7425a76d35160c0ca7301060' },
     { symbol: 'MOTION', address: '0xb0fea401f1ee62f0e7cc3bdf94b20c25ab5117e2' },

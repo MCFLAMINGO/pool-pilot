@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
-<title>Swap — Pool Pilot · Robinhood Chain</title>
-<meta name="description" content="No-thinking ETH ↔ token swaps on Robinhood Chain. 0.30% protocol fee to treasury. You sign — Pool Pilot never holds funds.">
-<meta property="og:title" content="Swap — Pool Pilot · Robinhood Chain">
-<meta property="og:description" content="ETH ↔ token on chain 4663. One amount. One button. 0.30% fee.">
+<title>Swap — Pool Pilot · ETH · USDG · Token</title>
+<meta name="description" content="Triangular ETH | USDG | Token swaps on Robinhood Chain. Cash-settled desk for stock tokens. 0.30% protocol fee. You sign — Pool Pilot never holds funds.">
+<meta property="og:title" content="Swap — Pool Pilot · ETH · USDG · Token">
+<meta property="og:description" content="ETH | USDG | Token on chain 4663. Direct or via WETH. 0.30% fee.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://poolpilot.xyz/swap">
 <meta property="og:image" content="https://poolpilot.xyz/og.png">
@@ -28,7 +28,7 @@
       <img src="logo.png" alt="Pool Pilot logo" width="36" height="36" style="display:block">
       <div>
         <h1>Pool Pilot</h1>
-        <span class="sub">Swap · Robinhood Chain</span>
+        <span class="sub">Swap · ETH · USDG · Token</span>
       </div>
     </a>
     <div class="spacer"></div>
@@ -46,7 +46,7 @@
 
   <section class="card swap-card" aria-label="Swap" data-testid="card-swap">
     <h2>Swap</h2>
-    <p class="swap-lead">ETH ↔ any Robinhood token with a WETH pool. You sign every step. Includes a <strong>0.30%</strong> protocol fee to the treasury.</p>
+    <p class="swap-lead">ETH · USDG · Token on Robinhood Chain. Cash leg for stock tokens when they land. You sign every step. <strong>0.30%</strong> protocol fee.</p>
 
     <div class="swap-side">
       <div class="swap-side-head">
@@ -60,6 +60,7 @@
         <input id="amountIn" type="text" inputmode="decimal" placeholder="0.0" autocomplete="off" data-testid="input-amount">
         <select id="tokenInSel" data-testid="select-token-in" aria-label="Pay with">
           <option value="ETH" selected>ETH</option>
+          <option value="USDG">USDG</option>
           <option value="TOKEN">Token</option>
         </select>
       </div>
@@ -74,6 +75,7 @@
         <input id="amountOut" type="text" placeholder="—" readonly data-testid="text-amount-out">
         <select id="tokenOutSel" data-testid="select-token-out" aria-label="Receive">
           <option value="TOKEN" selected>Token</option>
+          <option value="USDG">USDG</option>
           <option value="ETH">ETH</option>
         </select>
       </div>
@@ -88,17 +90,19 @@
       <button type="button" class="chip" data-usd="250">$250</button>
     </div>
 
-    <div class="entry" style="margin-top:var(--space-3)">
-      <input id="tokenAddr" placeholder="Token address (0x…)" spellcheck="false" autocomplete="off" data-testid="input-swap-token">
+    <div id="tokenPick" class="token-pick">
+      <div class="entry" style="margin-top:var(--space-3)">
+        <input id="tokenAddr" placeholder="Token address (0x…)" spellcheck="false" autocomplete="off" data-testid="input-swap-token">
+      </div>
+      <div class="chips token-chips" id="tokenChips" data-testid="token-chips"></div>
     </div>
-    <div class="chips token-chips" id="tokenChips" data-testid="token-chips"></div>
 
     <div id="quoteBox" class="swap-quote hidden" data-testid="quote-box"></div>
     <div id="errBanner" class="banner err hidden" data-testid="banner-swap-error"></div>
     <div id="walletBanner" class="banner warn hidden" data-testid="banner-wallet"></div>
 
     <button class="btn btn-primary btn-lg" id="swapBtn" style="width:100%;margin-top:var(--space-4)" data-testid="button-swap" disabled>Swap</button>
-    <p class="swap-fine">Routes via Uniswap v3 on Robinhood Chain (4663). Fee is skimmed before the hop — not custodied by Pool Pilot.</p>
+    <p class="swap-fine">Uniswap v3 on Robinhood Chain (4663). USDG↔Token uses a direct pool when it exists, otherwise routes via WETH. Fee skimmed before the hop — not custodied by Pool Pilot.</p>
   </section>
 
   <footer>

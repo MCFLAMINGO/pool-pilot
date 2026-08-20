@@ -260,6 +260,7 @@ body {
   max-height: 7.5rem; overflow-y: auto; margin-top: var(--space-2);
   padding-right: 2px;
 }
+.token-pick.hidden { display: none; }
 .token-chips .chip.is-active {
   color: var(--accent); border-color: var(--accent);
 }

@@ -9,9 +9,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Pool Pilot — Swap + liquidity for Robinhood Chain</title>
-<meta name="description" content="Swap ETH ↔ tokens on Robinhood Chain with live dollar amounts. Non-custodial Uniswap v3 — you sign, we never hold funds.">
+<meta name="description" content="Swap ETH · USDG · Token on Robinhood Chain with live dollar amounts. Triangular desk for cash-settled stock tokens. Non-custodial — you sign, we never hold funds.">
 <meta property="og:title" content="Pool Pilot Swap — Robinhood Chain">
-<meta property="og:description" content="No-thinking ETH ↔ token swaps with $ amounts. 0.30% fee. Your wallet.">
+<meta property="og:description" content="ETH · USDG · Token triangular swap with $ amounts. 0.30% fee. Your wallet.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://poolpilot.xyz/">
 <meta property="og:site_name" content="Pool Pilot">
@@ -21,7 +21,7 @@
 <meta property="og:image:alt" content="Pool Pilot — flamingo pilot logo with the tagline: your pool's health in plain English, fix it in one signed move">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Pool Pilot Swap — Robinhood Chain">
-<meta name="twitter:description" content="ETH ↔ token on chain 4663 with live dollar amounts. Non-custodial.">
+<meta name="twitter:description" content="ETH · USDG · Token on chain 4663 with live dollar amounts. Non-custodial.">
 <meta name="twitter:image" content="https://poolpilot.xyz/og.png">
 <link rel="canonical" href="https://poolpilot.xyz/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -59,9 +59,10 @@
   <section class="card launch-banner" aria-label="Swap launch" style="margin-bottom:var(--space-4)" data-testid="card-swap-launch">
     <p class="launch-kicker">Live on Robinhood Chain</p>
     <h2 class="launch-title">Pool Pilot Swap</h2>
-    <p class="launch-body">ETH ↔ RH tokens with live dollar amounts. One button. You sign — we custody nothing. Includes a 0.30% protocol fee.</p>
+    <p class="launch-body">ETH · USDG · Token — cash leg ready for stock tokens. Live dollar amounts. One button. You sign — we custody nothing. 0.30% protocol fee.</p>
     <div class="launch-actions">
       <a class="btn btn-primary btn-lg" href="/swap?usd=25&out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523" data-testid="link-swap-hero">Swap $25 of ETH → MCFL</a>
+      <a class="btn btn-ghost" href="/swap?in=usdg&to=token&usd=25&out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523" data-testid="link-swap-usdg">$25 USDG → MCFL</a>
       <a class="btn btn-ghost" href="/swap" data-testid="link-swap-all">Browse RH tokens</a>
     </div>
   </section>
