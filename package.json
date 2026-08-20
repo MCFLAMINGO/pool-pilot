@@ -15,7 +15,9 @@
     "test:swap-quote": "node test/swap-quote.js",
     "outreach": "node agents/outreach/run.js",
     "outreach:tick": "node agents/outreach/run.js --tick",
-    "outreach:live": "node agents/outreach/run.js --tick --live"
+    "outreach:live": "node agents/outreach/run.js --tick --live",
+    "outreach:bot": "node agents/outreach/bot.js",
+    "outreach:share": "node agents/outreach/shareKit.js"
   },
   "dependencies": {
     "ethers": "5.7.2"

@@ -3,17 +3,27 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/start", "destination": "/start.html" },
-    { "source": "/swap", "destination": "/swap.html" }
+    { "source": "/swap", "destination": "/swap.html" },
+    { "source": "/tg-swap", "destination": "/tg-swap.html" },
+    { "source": "/tg", "destination": "/tg-swap.html" }
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!tg-swap\\.html$|tg-swap$|tg$).*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
         { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" }
+      ]
+    },
+    {
+      "source": "/tg-swap",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org;" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
       ]
     }
   ]
