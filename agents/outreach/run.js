@@ -2,12 +2,14 @@
 
 /**
  * Outreach runner — dry-run by default.
+ * X posts go through gsb-swarm on Railway (existing X OAuth), not local keys.
+ * TG posts use TELEGRAM_BOT_TOKEN against allowlisted chats only.
+ *
  * node agents/outreach/run.js [--tick] [--live] [--channel=x|tg|all]
  */
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const https = require('https');
 const cadence = require('./cadence');
 const templates = require('./templates');
@@ -16,6 +18,9 @@ const ROOT = __dirname;
 const STATE_PATH = path.join(ROOT, '.state.json');
 const TARGETS_PATH = path.join(ROOT, 'targets.json');
 const EXAMPLE_PATH = path.join(ROOT, 'targets.example.json');
+
+const GSB_SWARM_URL = (process.env.GSB_SWARM_URL || 'https://gsb-swarm-production.up.railway.app').replace(/\/$/, '');
+const GSB_OPERATOR_KEY = process.env.GSB_OPERATOR_KEY || process.env.OPERATOR_KEY || '';
 
 const args = process.argv.slice(2);
 const LIVE = args.includes('--live');
@@ -70,7 +75,7 @@ function markSent(state, bucket, now) {
 function httpJson(method, url, headers, body) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
-    const data = body ? JSON.stringify(body) : null;
+    const data = body == null ? null : JSON.stringify(body);
     const req = https.request({
       hostname: u.hostname,
       path: u.pathname + u.search,
@@ -110,43 +115,25 @@ async function tgSend(chatId, text) {
   });
 }
 
-/** OAuth1 signing for X API v2 tweet create */
-function oauthHeader(method, url, consumerKey, consumerSecret, token, tokenSecret) {
-  const oauth = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: crypto.randomBytes(16).toString('hex'),
-    oauth_signature_method: 'HMAC-SHA1',
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: token,
-    oauth_version: '1.0'
-  };
-  const params = Object.keys(oauth).sort().map((k) => `${enc(k)}=${enc(oauth[k])}`).join('&');
-  const base = [method.toUpperCase(), enc(url), enc(params)].join('&');
-  const key = `${enc(consumerSecret)}&${enc(tokenSecret)}`;
-  oauth.oauth_signature = crypto.createHmac('sha1', key).update(base).digest('base64');
-  return 'OAuth ' + Object.keys(oauth).sort().map((k) => `${enc(k)}="${enc(oauth[k])}"`).join(', ');
-}
-function enc(s) {
-  return encodeURIComponent(s).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+/** Post via gsb-swarm Railway (same X keys as Thread Writer). */
+async function xPostViaRailway() {
+  if (!GSB_OPERATOR_KEY) {
+    throw new Error('Set GSB_OPERATOR_KEY (operator auth for gsb-swarm) to post X via Railway');
+  }
+  return httpJson('POST', `${GSB_SWARM_URL}/api/pool-pilot/x-tick`, {
+    'x-gsb-token': GSB_OPERATOR_KEY,
+    Authorization: `Bearer ${GSB_OPERATOR_KEY}`
+  }, { force: false, dryRun: false });
 }
 
-async function xPost(text) {
-  const ck = process.env.X_API_KEY;
-  const cs = process.env.X_API_SECRET;
-  const at = process.env.X_ACCESS_TOKEN;
-  const as = process.env.X_ACCESS_SECRET;
-  if (!ck || !cs || !at || !as) {
-    throw new Error('Set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET for live X posts');
-  }
-  const url = 'https://api.twitter.com/2/tweets';
-  const auth = oauthHeader('POST', url, ck, cs, at, as);
-  return httpJson('POST', url, { Authorization: auth }, { text });
+async function xStatusViaRailway() {
+  return httpJson('GET', `${GSB_SWARM_URL}/api/pool-pilot/x-status`, {}, null);
 }
 
 function loadTargets() {
   if (!fs.existsSync(TARGETS_PATH)) {
     console.error('[outreach] Missing agents/outreach/targets.json — copy from targets.example.json');
-    return loadJson(EXAMPLE_PATH, { x: { enabled: false }, telegram: { enabled: false, channels: [], dms: [] } });
+    return loadJson(EXAMPLE_PATH, { x: { enabled: true }, telegram: { enabled: false, channels: [], dms: [] } });
   }
   return loadJson(TARGETS_PATH, {});
 }
@@ -158,11 +145,16 @@ async function maybePost(job, state, now) {
     return false;
   }
   console.log(`[${LIVE ? 'LIVE' : 'DRY'}] ${job.channel} → ${job.label}`);
-  console.log(job.text);
+  if (job.text) console.log(job.text);
   console.log('---');
   if (!LIVE) return false;
-  if (job.channel === 'x') await xPost(job.text);
-  else await tgSend(job.targetId, job.text);
+  if (job.channel === 'x') {
+    const out = await xPostViaRailway();
+    console.log('[x] railway:', JSON.stringify(out));
+    if (out && out.skipped) return false;
+  } else {
+    await tgSend(job.targetId, job.text);
+  }
   markSent(state, job.bucket, now);
   return true;
 }
@@ -174,7 +166,7 @@ async function buildJobs(targets, now) {
   if ((channelArg === 'all' || channelArg === 'x') && targets.x && targets.x.enabled !== false) {
     jobs.push({
       channel: 'x',
-      label: 'home-timeline',
+      label: 'gsb-swarm-railway',
       bucket: 'x',
       caps: cadence.x,
       text: templates.pick(templates.X_POSTS, salt + ':x')
@@ -217,7 +209,15 @@ async function main() {
   const state = loadJson(STATE_PATH, { days: {}, last: {} });
 
   console.log(`Pool Pilot outreach · ${LIVE ? 'LIVE' : 'DRY-RUN'} · ${now.toISOString()}`);
+  console.log(`X via Railway: ${GSB_SWARM_URL}/api/pool-pilot/x-tick`);
   console.log(`Cadence: X ${cadence.x.perDay}/day, TG ${cadence.tgBroadcast.perDay}/day, DM ${cadence.tgDm.perDay}/day`);
+
+  try {
+    const st = await xStatusViaRailway();
+    console.log('Railway X status:', JSON.stringify(st));
+  } catch (e) {
+    console.log('Railway X status: unreachable (' + (e.message || e) + ') — deploy gsb-swarm worker first');
+  }
 
   if (!TICK) {
     const jobs = await buildJobs(targets, now);
@@ -231,7 +231,6 @@ async function main() {
   }
 
   const jobs = await buildJobs(targets, now);
-  // One send per bucket per tick — keeps cadence human
   const seen = {};
   for (const job of jobs) {
     if (seen[job.bucket]) continue;

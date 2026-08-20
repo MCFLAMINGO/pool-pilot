@@ -1,4 +1,4 @@
-/* Pool Pilot fee swap — ETH ↔ token on Robinhood Chain. */
+/* Pool Pilot fee swap — ETH | USDG | Token triangular desk on Robinhood Chain. */
 (function () {
   'use strict';
   var L = window.ChainLib;
@@ -10,7 +10,10 @@
     wallet: { addr: null, provider: null, chainOk: false },
     plan: null,
     busy: false,
-    quoteTimer: null
+    quoteTimer: null,
+    ethUsd: null,
+    amountMode: 'crypto', // 'crypto' | 'usd'
+    tokenUsd: null // last implied USD per 1 token from quote
   };
 
   var theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -187,22 +190,155 @@
     if (e.target === $('overlay') && !S.busy) closeModal();
   });
 
-  function direction() {
-    return $('tokenInSel').value === 'ETH' ? 'buy' : 'sell';
-  }
-  function syncDirectionUi() {
-    var buy = direction() === 'buy';
-    $('tokenOutSel').value = buy ? 'TOKEN' : 'ETH';
-    $('labelIn').textContent = 'You pay';
-    $('labelOut').textContent = 'You get';
+  /* -------- triangular sides -------- */
+  function sideIn() { return $('tokenInSel').value; }
+  function sideOut() { return $('tokenOutSel').value; }
+  function needsTokenAddr() {
+    return sideIn() === 'TOKEN' || sideOut() === 'TOKEN';
   }
   function tokenFromUi() {
     return ($('tokenAddr').value || '').trim();
+  }
+  function syncTokenPick() {
+    var box = $('tokenPick');
+    if (!box) return;
+    if (needsTokenAddr()) box.classList.remove('hidden');
+    else box.classList.add('hidden');
+  }
+  /** Map UI sides → planFeeSwap args. */
+  function mapSides() {
+    var a = sideIn(), b = sideOut();
+    if (a === b) throw new Error('Pick two different assets.');
+    var addr = tokenFromUi();
+    function map(side) {
+      if (side === 'ETH') return 'ETH';
+      if (side === 'USDG') return 'USDG';
+      if (!addr) throw new Error('Paste a token address.');
+      if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Paste a valid token address (0x…).');
+      return addr;
+    }
+    return { tokenIn: map(a), tokenOut: map(b) };
+  }
+  /** Prefer a free opposite when user picks the same on both selects. */
+  function ensureDistinct(changed) {
+    if (sideIn() !== sideOut()) return;
+    var free = ['ETH', 'USDG', 'TOKEN'].filter(function (x) { return x !== sideIn(); });
+    if (changed === 'in') $('tokenOutSel').value = free[0];
+    else $('tokenInSel').value = free[0];
+  }
+  function fmtUsd(n) {
+    if (n == null || !isFinite(n)) return '—';
+    if (n >= 1000) return '$' + Math.round(n).toLocaleString();
+    if (n >= 1) return '$' + n.toFixed(2);
+    if (n >= 0.01) return '$' + n.toFixed(4);
+    return '$' + n.toPrecision(2);
+  }
+  function updateUnitBtn() {
+    var b = $('unitBtn');
+    if (!b) return;
+    if (S.amountMode === 'usd') {
+      b.textContent = 'Crypto';
+      b.setAttribute('aria-pressed', 'true');
+      $('amountIn').placeholder = '0.00';
+    } else {
+      b.textContent = '$ USD';
+      b.setAttribute('aria-pressed', 'false');
+      $('amountIn').placeholder = '0.0';
+    }
+  }
+  function impliedInUsd(amount) {
+    if (!isFinite(amount) || amount <= 0) return null;
+    if (sideIn() === 'ETH') return S.ethUsd ? amount * S.ethUsd : null;
+    if (sideIn() === 'USDG') return amount; // ~$1
+    if (S.tokenUsd != null) return amount * S.tokenUsd;
+    return null;
+  }
+  function estimateOutUsd(plan) {
+    if (plan.outIsUsdg) return plan.amountOutF;
+    if (plan.outIsEth) return S.ethUsd ? plan.amountOutF * S.ethUsd : null;
+    // token out — value ≈ USD spent on swap leg
+    if (plan.inIsUsdg) return plan.swapInF;
+    if (plan.inIsEth && S.ethUsd) return plan.swapInF * S.ethUsd;
+    if (S.tokenUsd != null) return plan.amountInF * S.tokenUsd;
+    return null;
+  }
+  function updateUsdHints() {
+    var inEl = $('usdInHint');
+    var outEl = $('usdOutHint');
+    if (!inEl || !outEl) return;
+    var raw = parseFloat(($('amountIn').value || '').replace(/,/g, ''));
+    if (!isFinite(raw) || raw <= 0) {
+      inEl.textContent = S.amountMode === 'usd' ? 'Enter USD amount' : '≈ $—';
+      outEl.textContent = '≈ $—';
+      return;
+    }
+    if (S.amountMode === 'usd') {
+      inEl.textContent = 'Paying ≈ ' + fmtUsd(raw);
+      outEl.textContent = S.plan ? ('You get ≈ ' + fmtUsd(estimateOutUsd(S.plan))) : '≈ $—';
+      return;
+    }
+    var inU = impliedInUsd(raw);
+    inEl.textContent = inU != null ? ('≈ ' + fmtUsd(inU)) : '≈ $—';
+    outEl.textContent = S.plan ? ('≈ ' + fmtUsd(estimateOutUsd(S.plan))) : '≈ $—';
+  }
+  function resolveAmountInCrypto() {
+    var raw = ($('amountIn').value || '').trim().replace(/,/g, '');
+    var n = parseFloat(raw);
+    if (!isFinite(n) || n <= 0) return null;
+    if (S.amountMode !== 'usd') return String(n);
+
+    if (sideIn() === 'ETH') {
+      if (!S.ethUsd) throw new Error('ETH/USD price unavailable — try again or enter ETH amount.');
+      return (n / S.ethUsd).toFixed(8);
+    }
+    if (sideIn() === 'USDG') {
+      return n.toFixed(6); // 1 USDG ≈ $1
+    }
+    if (S.tokenUsd == null || S.tokenUsd <= 0) {
+      throw new Error('Pick a token and wait for a quote first, then enter USD — or switch to crypto units.');
+    }
+    return (n / S.tokenUsd).toFixed(6);
+  }
+
+  function renderTokenChips() {
+    var box = $('tokenChips');
+    if (!box) return;
+    var list = (window.RH_TOKENS || []).filter(function (t) {
+      return (t.address || '').toLowerCase() !== CFG.USDG.toLowerCase();
+    });
+    box.innerHTML = list.map(function (t) {
+      return '<button type="button" class="chip" data-addr="' + t.address + '" data-sym="' + esc(t.symbol) + '" data-testid="chip-' + esc(t.symbol).toLowerCase() + '">' + esc(t.symbol) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.chip'), function (c) {
+      c.addEventListener('click', function () {
+        try {
+          $('tokenAddr').value = ethers.utils.getAddress(c.getAttribute('data-addr'));
+        } catch (e) {
+          $('tokenAddr').value = c.getAttribute('data-addr');
+        }
+        if (sideIn() !== 'TOKEN' && sideOut() !== 'TOKEN') {
+          $('tokenOutSel').value = 'TOKEN';
+          ensureDistinct('out');
+        }
+        highlightChip();
+        syncTokenPick();
+        scheduleQuote();
+      });
+    });
+    highlightChip();
+  }
+  function highlightChip() {
+    var cur = (tokenFromUi() || '').toLowerCase();
+    Array.prototype.forEach.call(document.querySelectorAll('#tokenChips .chip'), function (c) {
+      c.classList.toggle('is-active', (c.getAttribute('data-addr') || '').toLowerCase() === cur);
+    });
   }
 
   function scheduleQuote() {
     clearTimeout(S.quoteTimer);
     S.quoteTimer = setTimeout(runQuote, 280);
+    syncTokenPick();
+    updateUsdHints();
   }
 
   function runQuote() {
@@ -211,43 +347,98 @@
     $('amountOut').value = '';
     $('quoteBox').classList.add('hidden');
     $('swapBtn').disabled = true;
+    updateUsdHints();
 
-    var amt = ($('amountIn').value || '').trim();
-    var tok = tokenFromUi();
-    if (!amt || !tok) return;
-    if (!/^0x[0-9a-fA-F]{40}$/.test(tok)) {
-      showErr('Paste a valid token address (0x…).');
+    var sides;
+    try { sides = mapSides(); }
+    catch (e) {
+      // Incomplete form (no token yet) — silent until user fills
+      if (/token address/i.test((e && e.message) || '')) return;
+      showErr((e && e.message) || e);
       return;
     }
 
-    var buy = direction() === 'buy';
+    var cryptoAmt;
+    try { cryptoAmt = resolveAmountInCrypto(); }
+    catch (e) { showErr((e && e.message) || e); return; }
+    if (!cryptoAmt) return;
+
+    var probeFirst = (S.amountMode === 'usd' && sideIn() === 'TOKEN' && (S.tokenUsd == null || S.tokenUsd <= 0));
     $('swapBtn').textContent = 'Quoting…';
-    L.planFeeSwap(read, {
-      tokenIn: buy ? 'ETH' : tok,
-      tokenOut: buy ? tok : 'ETH',
-      amountIn: amt,
-      feeBps: CFG.SWAP_FEE_BPS,
-      slippageBps: 100
+
+    function quoteWith(amountIn) {
+      return L.planFeeSwap(read, {
+        tokenIn: sides.tokenIn,
+        tokenOut: sides.tokenOut,
+        amountIn: amountIn,
+        feeBps: CFG.SWAP_FEE_BPS,
+        slippageBps: 100
+      });
+    }
+
+    var start = probeFirst ? quoteWith('1') : quoteWith(cryptoAmt);
+    start.then(function (plan) {
+      if (probeFirst) {
+        if (plan.outIsEth && S.ethUsd && plan.amountOutF > 0) {
+          S.tokenUsd = (plan.amountOutF * S.ethUsd) / plan.amountInF;
+        } else if (plan.outIsUsdg && plan.amountOutF > 0) {
+          S.tokenUsd = plan.amountOutF / plan.amountInF;
+        }
+        return quoteWith(resolveAmountInCrypto());
+      }
+      return plan;
     }).then(function (plan) {
       S.plan = plan;
+      // Refresh implied token USD
+      if (sideIn() === 'TOKEN' || sideOut() === 'TOKEN') {
+        if (plan.inIsEth && S.ethUsd && plan.amountOutF > 0 && !plan.outIsEth && !plan.outIsUsdg) {
+          S.tokenUsd = (plan.swapInF * S.ethUsd) / plan.amountOutF;
+        } else if (plan.outIsEth && S.ethUsd && plan.amountInF > 0 && !plan.inIsEth) {
+          S.tokenUsd = (plan.amountOutF * S.ethUsd) / plan.amountInF;
+        } else if (plan.inIsUsdg && plan.amountOutF > 0 && !plan.outIsUsdg && !plan.outIsEth) {
+          S.tokenUsd = plan.swapInF / plan.amountOutF;
+        } else if (plan.outIsUsdg && plan.amountInF > 0 && !plan.inIsUsdg) {
+          S.tokenUsd = plan.amountOutF / plan.amountInF;
+        }
+      }
+
       $('amountOut').value = plan.amountOutF >= 1
         ? plan.amountOutF.toLocaleString(undefined, { maximumFractionDigits: 4 })
         : plan.amountOutF.toPrecision(4);
+
       var feeLabel = plan.inIsEth
-        ? plan.feeF.toFixed(6) + ' ETH'
-        : plan.feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + plan.info.symbol;
+        ? plan.feeF.toFixed(6) + ' ETH' + (S.ethUsd ? ' (' + fmtUsd(plan.feeF * S.ethUsd) + ')' : '')
+        : plan.feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + plan.symbolIn +
+          (plan.inIsUsdg ? ' (≈ ' + fmtUsd(plan.feeF) + ')' : '');
+
+      var approx = estimateOutUsd(plan);
+      var usdLine = approx != null
+        ? '<div class="prow"><span class="k">Approx. value</span><span class="v">' + fmtUsd(approx) +
+          (S.ethUsd ? ' · ETH $' + Math.round(S.ethUsd) : '') + '</span></div>'
+        : '';
+
+      var tierLine = plan.hops > 1
+        ? '<div class="prow"><span class="k">Route</span><span class="v">' + esc(plan.pathLabel) + '</span></div>' +
+          '<div class="prow"><span class="k">Hops</span><span class="v">2 via WETH</span></div>'
+        : '<div class="prow"><span class="k">Pool fee tier</span><span class="v">' +
+          ((plan.info && plan.info.fee) ? (plan.info.fee / 10000) + '%' : '—') + '</span></div>';
+
       $('quoteBox').innerHTML =
-        '<div class="prow"><span class="k">Pool fee tier</span><span class="v">' + (plan.info.fee / 10000) + '%</span></div>' +
+        usdLine +
+        tierLine +
         '<div class="prow"><span class="k">Protocol fee (' + plan.feeBps / 100 + '%)</span><span class="v">' + esc(feeLabel) + '</span></div>' +
         '<div class="prow"><span class="k">Min received</span><span class="v mono">' +
-        parseFloat(ethers.utils.formatUnits(plan.minOut, plan.outIsEth ? 18 : plan.info.decimals)).toPrecision(4) +
+        parseFloat(ethers.utils.formatUnits(plan.minOut, plan.decimalsOut)).toPrecision(4) +
         ' ' + esc(plan.symbolOut) + '</span></div>';
       $('quoteBox').classList.remove('hidden');
       $('swapBtn').disabled = false;
       $('swapBtn').textContent = S.wallet.addr ? 'Swap' : 'Connect to swap';
+      updateUsdHints();
+      highlightChip();
     }).catch(function (e) {
       showErr((e && e.message) || e);
       $('swapBtn').textContent = 'Swap';
+      updateUsdHints();
     });
   }
 
@@ -265,10 +456,15 @@
     try { txs = S.plan.buildTxs(S.wallet.addr); }
     catch (e) { showErr((e && e.message) || e); return; }
 
+    var usdNote = '';
+    var v = estimateOutUsd(S.plan);
+    if (v != null) usdNote = ' · ≈ ' + fmtUsd(v);
+
     S.busy = true;
     openModal(
       '<h3>Confirm swap</h3>' +
-      '<p class="msub">' + esc(S.plan.symbolIn) + ' → ' + esc(S.plan.symbolOut) + ' · ' + txs.length + ' step' + (txs.length === 1 ? '' : 's') + '</p>' +
+      '<p class="msub">' + esc(S.plan.pathLabel || (S.plan.symbolIn + ' → ' + S.plan.symbolOut)) + usdNote +
+      ' · ' + txs.length + ' step' + (txs.length === 1 ? '' : 's') + '</p>' +
       '<ol class="steps">' + txs.map(function (t, i) {
         return '<li id="step' + i + '"><span class="dot">○</span> ' + esc(t.label) + '</li>';
       }).join('') + '</ol>' +
@@ -317,40 +513,79 @@
   }
 
   /* -------- wire -------- */
-  $('tokenInSel').addEventListener('change', function () {
-    $('tokenOutSel').value = direction() === 'buy' ? 'TOKEN' : 'ETH';
-    syncDirectionUi();
+  function onSideChange(which) {
+    ensureDistinct(which);
+    S.tokenUsd = null;
+    syncTokenPick();
     scheduleQuote();
-  });
-  $('tokenOutSel').addEventListener('change', function () {
-    $('tokenInSel').value = $('tokenOutSel').value === 'ETH' ? 'TOKEN' : 'ETH';
-    syncDirectionUi();
-    scheduleQuote();
-  });
+  }
+  $('tokenInSel').addEventListener('change', function () { onSideChange('in'); });
+  $('tokenOutSel').addEventListener('change', function () { onSideChange('out'); });
   $('flipBtn').addEventListener('click', function () {
-    $('tokenInSel').value = direction() === 'buy' ? 'TOKEN' : 'ETH';
-    $('tokenOutSel').value = direction() === 'buy' ? 'ETH' : 'TOKEN';
-    syncDirectionUi();
+    var a = sideIn(), b = sideOut();
+    $('tokenInSel').value = b;
+    $('tokenOutSel').value = a;
+    S.tokenUsd = null;
+    syncTokenPick();
     scheduleQuote();
   });
-  $('amountIn').addEventListener('input', scheduleQuote);
-  $('tokenAddr').addEventListener('input', scheduleQuote);
-  Array.prototype.forEach.call(document.querySelectorAll('.chip[data-addr]'), function (c) {
-    c.addEventListener('click', function () {
-      $('tokenAddr').value = c.getAttribute('data-addr');
+  $('unitBtn').addEventListener('click', function () {
+    var raw = parseFloat(($('amountIn').value || '').replace(/,/g, ''));
+    var wasUsd = S.amountMode === 'usd';
+    S.amountMode = wasUsd ? 'crypto' : 'usd';
+    updateUnitBtn();
+    if (isFinite(raw) && raw > 0) {
+      if (!wasUsd) {
+        // crypto → USD
+        var u = impliedInUsd(raw);
+        if (u != null) $('amountIn').value = u.toFixed(2);
+      } else {
+        // USD → crypto
+        if (sideIn() === 'ETH' && S.ethUsd) $('amountIn').value = (raw / S.ethUsd).toFixed(6);
+        else if (sideIn() === 'USDG') $('amountIn').value = raw.toFixed(4);
+        else if (S.tokenUsd) $('amountIn').value = (raw / S.tokenUsd).toFixed(4);
+      }
+    }
+    scheduleQuote();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#usdPresets [data-usd]'), function (b) {
+    b.addEventListener('click', function () {
+      S.amountMode = 'usd';
+      updateUnitBtn();
+      $('amountIn').value = b.getAttribute('data-usd');
+      // Prefer cash → token when user taps a dollar preset
+      if (sideOut() !== 'TOKEN' && sideIn() !== 'TOKEN') {
+        $('tokenOutSel').value = 'TOKEN';
+        ensureDistinct('out');
+      }
+      if (sideIn() === 'TOKEN') {
+        $('tokenInSel').value = 'USDG';
+        ensureDistinct('in');
+      }
+      syncTokenPick();
       scheduleQuote();
     });
   });
+  $('amountIn').addEventListener('input', scheduleQuote);
+  $('tokenAddr').addEventListener('input', function () { S.tokenUsd = null; highlightChip(); scheduleQuote(); });
   $('maxBtn').addEventListener('click', function () {
+    S.amountMode = 'crypto';
+    updateUnitBtn();
     if (!S.wallet.addr || !S.wallet.provider) { chooseWalletThenConnect(); return; }
     var p = S.wallet.provider;
-    if (direction() === 'buy') {
+    if (sideIn() === 'ETH') {
       p.getBalance(S.wallet.addr).then(function (bal) {
         var leave = ethers.utils.parseEther('0.0004');
         var use = bal.gt(leave) ? bal.sub(leave) : ethers.constants.Zero;
         $('amountIn').value = ethers.utils.formatEther(use);
         scheduleQuote();
       });
+    } else if (sideIn() === 'USDG') {
+      var cU = new ethers.Contract(CFG.USDG, ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'], p);
+      Promise.all([cU.balanceOf(S.wallet.addr), cU.decimals()]).then(function (r) {
+        $('amountIn').value = ethers.utils.formatUnits(r[0], r[1]);
+        scheduleQuote();
+      }).catch(function (e) { showErr((e && e.message) || e); });
     } else {
       var tok = tokenFromUi();
       if (!/^0x[0-9a-fA-F]{40}$/.test(tok)) { showErr('Paste token address first.'); return; }
@@ -364,18 +599,47 @@
   $('swapBtn').addEventListener('click', executeSwap);
 
   /* boot from query */
+  renderTokenChips();
   var q = new URLSearchParams(location.search);
   var out = q.get('out') || q.get('token') || q.get('buy');
+  var inn = (q.get('in') || '').toLowerCase();
+  var outSide = (q.get('to') || q.get('sideOut') || '').toLowerCase();
+
+  if (inn === 'usdg') $('tokenInSel').value = 'USDG';
+  else if (inn === 'token' || inn === 'erc20') $('tokenInSel').value = 'TOKEN';
+  else if (inn === 'eth') $('tokenInSel').value = 'ETH';
+
+  if (outSide === 'usdg') $('tokenOutSel').value = 'USDG';
+  else if (outSide === 'eth') $('tokenOutSel').value = 'ETH';
+  else if (outSide === 'token') $('tokenOutSel').value = 'TOKEN';
+
   if (out && /^0x[0-9a-fA-F]{40}$/i.test(out)) {
     $('tokenAddr').value = ethers.utils.getAddress(out);
-  } else {
+    if (sideIn() !== 'TOKEN' && sideOut() !== 'TOKEN') $('tokenOutSel').value = 'TOKEN';
+  } else if (!$('tokenAddr').value) {
     $('tokenAddr').value = CFG.MCFL;
   }
+
   if ((q.get('side') || '').toLowerCase() === 'sell') {
     $('tokenInSel').value = 'TOKEN';
     $('tokenOutSel').value = 'ETH';
   }
-  syncDirectionUi();
+  if ((q.get('side') || '').toLowerCase() === 'cash') {
+    $('tokenInSel').value = 'USDG';
+    $('tokenOutSel').value = 'TOKEN';
+  }
+  ensureDistinct('in');
+  if ((q.get('usd') || q.get('amountUsd'))) {
+    S.amountMode = 'usd';
+    $('amountIn').value = q.get('usd') || q.get('amountUsd');
+  }
+  syncTokenPick();
+  updateUnitBtn();
   updateWalletBtn();
-  scheduleQuote();
+  highlightChip();
+  L.fetchEthUsd().then(function (u) {
+    S.ethUsd = u;
+    updateUsdHints();
+    scheduleQuote();
+  }).catch(function () { scheduleQuote(); });
 })();
