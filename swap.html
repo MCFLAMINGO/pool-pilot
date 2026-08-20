@@ -51,7 +51,10 @@
     <div class="swap-side">
       <div class="swap-side-head">
         <span id="labelIn">You pay</span>
-        <button type="button" class="linkish" id="maxBtn" data-testid="button-max">Max</button>
+        <div class="swap-head-actions">
+          <button type="button" class="linkish" id="unitBtn" data-testid="button-unit" title="Toggle crypto / USD entry">$ USD</button>
+          <button type="button" class="linkish" id="maxBtn" data-testid="button-max">Max</button>
+        </div>
       </div>
       <div class="swap-row">
         <input id="amountIn" type="text" inputmode="decimal" placeholder="0.0" autocomplete="off" data-testid="input-amount">
@@ -60,6 +63,7 @@
           <option value="TOKEN">Token</option>
         </select>
       </div>
+      <div class="swap-usd" id="usdInHint" data-testid="text-usd-in">≈ $—</div>
     </div>
 
     <button type="button" class="swap-flip" id="flipBtn" data-testid="button-flip" aria-label="Flip direction">⇅</button>
@@ -73,16 +77,21 @@
           <option value="ETH">ETH</option>
         </select>
       </div>
+      <div class="swap-usd" id="usdOutHint" data-testid="text-usd-out">≈ $—</div>
+    </div>
+
+    <div class="usd-presets" id="usdPresets" data-testid="usd-presets">
+      <button type="button" class="chip" data-usd="10">$10</button>
+      <button type="button" class="chip" data-usd="25">$25</button>
+      <button type="button" class="chip" data-usd="50">$50</button>
+      <button type="button" class="chip" data-usd="100">$100</button>
+      <button type="button" class="chip" data-usd="250">$250</button>
     </div>
 
     <div class="entry" style="margin-top:var(--space-3)">
       <input id="tokenAddr" placeholder="Token address (0x…)" spellcheck="false" autocomplete="off" data-testid="input-swap-token">
     </div>
-    <div class="chips">
-      <button type="button" class="chip" data-addr="0x21a91215fbfc4fc002b07cc87698a6fc01aed523" data-testid="chip-mcfl">MCFL</button>
-      <button type="button" class="chip" data-addr="0x020bfc650a365f8bb26819deaabf3e21291018b4" data-testid="chip-cashcat">CASHCAT</button>
-      <button type="button" class="chip" data-addr="0x521934ea44568164cd3a578e5823dba0de700880" data-testid="chip-ansem">ANSEM</button>
-    </div>
+    <div class="chips token-chips" id="tokenChips" data-testid="token-chips"></div>
 
     <div id="quoteBox" class="swap-quote hidden" data-testid="quote-box"></div>
     <div id="errBanner" class="banner err hidden" data-testid="banner-swap-error"></div>
@@ -103,6 +112,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous"></script>
 <script src="js/chainlib.js"></script>
+<script src="js/rhTokens.js"></script>
 <script src="js/swap.js"></script>
 </body>
 </html>
