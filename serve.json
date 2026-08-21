@@ -1,0 +1,12 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/arrive", "destination": "/arrive.html" },
+    { "source": "/swap", "destination": "/swap.html" },
+    { "source": "/start", "destination": "/start.html" },
+    { "source": "/tg-swap", "destination": "/tg-swap.html" },
+    { "source": "/tg", "destination": "/tg-swap.html" },
+    { "source": "/tg-ok", "destination": "/tg-ok.html" }
+  ]
+}

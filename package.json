@@ -17,10 +17,14 @@
     "outreach:tick": "node agents/outreach/run.js --tick",
     "outreach:live": "node agents/outreach/run.js --tick --live",
     "outreach:bot": "node agents/outreach/bot.js",
-    "outreach:share": "node agents/outreach/shareKit.js"
+    "outreach:share": "node agents/outreach/shareKit.js",
+    "demo:arrive": "node demo/arrive-walkthrough.mjs"
   },
   "dependencies": {
     "ethers": "5.7.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   },
   "repository": {
     "type": "git",

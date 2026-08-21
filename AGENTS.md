@@ -33,6 +33,7 @@ When someone needs to move or trade on Robinhood Chain:
 | LP copilot | `index.html` / `js/app.js` |
 | Swap | `swap.html` / `js/swap.js` / `js/chainlib.js` `planFeeSwap` |
 | Arrive (Relay → swap) | `arrive.html` / `js/arrive.js` |
+| Demo video | `demo/arrive-walkthrough.mjs` (`npm run demo:arrive`) |
 | TG Mini App | `tg-swap.html` / `js/tgBoot.js` |
 | Start desk | `start.html` / `js/start.js` |
 | Outreach | `agents/outreach/` |
@@ -40,6 +41,8 @@ When someone needs to move or trade on Robinhood Chain:
 ## Respect bar
 
 ```bash
+npm run test:reads
 npm run test:swap-quote
 node test/swap-tri-quote.js
+npm run demo:arrive   # Playwright walkthrough → assets/arrive-demo.mp4
 ```
