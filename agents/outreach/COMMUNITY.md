@@ -20,13 +20,26 @@ https://t.me/poolpilotswapbot?startapp=USDG_MCFL_25
 
 ## BotFather setup (one time — you)
 
-1. [@BotFather](https://t.me/BotFather) → **Pool Pilot Swap** → **Bot Settings** → **Configure Mini App** / **Main App**
-2. **Main App URL:** `https://poolpilot.xyz/tg-swap`
-3. **Menu Button** (optional): same URL, text `Swap`
-4. **Direct Link** (optional): name `swap` → URL `https://poolpilot.xyz/tg-swap`  
-   Then links look like: `https://t.me/poolpilotswapbot/swap?startapp=MCFL_25`
+1. [@BotFather](https://t.me/BotFather) → **Pool Pilot Swap** → **Bot Settings** → **Configure Mini App**
+2. **Enable** Mini App if asked
+3. **Edit Mini App URL** (exact):
 
-Until Main App is set, `?startapp=` may only open the bot chat — set the Mini App URL first.
+```
+https://poolpilot.xyz/tg-swap
+```
+
+4. Optional Menu Button: same URL, text `Swap`
+5. Optional Direct Link name `swap` → `https://poolpilot.xyz/tg-swap`
+
+### If Launch shows “Something went wrong”
+1. Open in Safari/Chrome: https://poolpilot.xyz/tg-swap — must load the swap UI
+2. Temporarily set Mini App URL to diagnostic: `https://poolpilot.xyz/tg-ok` → Launch again  
+   - If **OK** page shows → BotFather is fine; switch URL back to `/tg-swap` after deploy  
+   - If still duck error → re-save Mini App URL, force-quit Telegram, retry on **phone** (Desktop is flakier)
+3. Prefer phone Telegram for first successful Launch
+4. Community links still work as web: `https://poolpilot.xyz/swap?usd=25&out=0x…`
+
+Until Main App URL is saved correctly, Launch will always fail.
 
 ## Your guys’ workflow
 

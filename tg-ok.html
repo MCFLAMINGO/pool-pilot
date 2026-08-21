@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pool Pilot TG OK</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#faf7f5;color:#231c1a}
+  .box{text-align:center;padding:32px}
+  h1{font-size:28px;margin:0 0 8px}
+  p{color:#756a66;margin:0 0 16px}
+  a{color:#e0447c;font-weight:700}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>Pool Pilot Mini App OK</h1>
+    <p id="msg">If you see this, BotFather URL works.</p>
+    <p><a href="/tg-swap">Open full swap →</a></p>
+  </div>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      try { tg.ready(); tg.expand(); } catch (e) {}
+      document.getElementById('msg').textContent = 'Telegram WebApp ready · platform ' + (tg.platform || '?');
+    }
+  </script>
+</body>
+</html>

@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; frame-src https://telegram.org; form-action 'none'; base-uri 'none'">
+<!-- Looser CSP for Telegram WebView — default-src none breaks Mini App launch on some clients -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' https://cdnjs.cloudflare.com https://telegram.org https://web.telegram.org 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src https://telegram.org https://web.telegram.org; form-action 'none'; base-uri 'self'">
 <meta name="referrer" content="no-referrer">
 <title>Pool Pilot — Telegram Swap</title>
 <meta name="description" content="Telegram Mini App: ETH · USDG · Token swap on Robinhood Chain. 0.30% protocol fee. Share with RH token communities.">
