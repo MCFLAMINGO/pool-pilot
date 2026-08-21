@@ -5,11 +5,12 @@
     { "source": "/start", "destination": "/start.html" },
     { "source": "/swap", "destination": "/swap.html" },
     { "source": "/tg-swap", "destination": "/tg-swap.html" },
-    { "source": "/tg", "destination": "/tg-swap.html" }
+    { "source": "/tg", "destination": "/tg-swap.html" },
+    { "source": "/tg-ok", "destination": "/tg-ok.html" }
   ],
   "headers": [
     {
-      "source": "/((?!tg-swap\\.html$|tg-swap$|tg$).*)",
+      "source": "/((?!tg-swap\\.html$|tg-swap$|tg$|tg-ok\\.html$|tg-ok$).*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
@@ -19,11 +20,12 @@
       ]
     },
     {
-      "source": "/tg-swap",
+      "source": "/(tg-swap|tg|tg-ok|tg-swap.html|tg-ok.html)",
       "headers": [
         { "key": "Content-Security-Policy", "value": "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org;" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" }
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     }
   ]
