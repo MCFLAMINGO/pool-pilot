@@ -43,20 +43,71 @@
   .arrive-step p { margin: 0 0 var(--space-3); color: var(--text-muted); font-size: var(--text-sm); line-height: 1.45; }
   .arrive-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .arrive-note { margin-top: var(--space-4); font-size: 0.85rem; color: var(--text-muted); }
+  .arrive-nav { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+  .arrive-more {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1.5px solid var(--border, #e4dcd7);
+  }
+  .arrive-more h3 {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+  .arrive-more > p {
+    margin: 0 0 var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+  .arrive-more-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .arrive-more a.more-row {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border, #e4dcd7);
+  }
+  .arrive-more a.more-row:last-child { border-bottom: none; }
+  .arrive-more a.more-row strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 2px;
+  }
+  .arrive-more a.more-row span {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+  .arrive-brand {
+    margin-top: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .arrive-brand a { color: inherit; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="shell">
   <header class="top">
-    <a class="logo" href="index.html" style="text-decoration:none;color:inherit">
+    <a class="logo" href="/" style="text-decoration:none;color:inherit" data-testid="link-arrive-home-logo">
       <img src="logo.png" alt="Pool Pilot logo" width="36" height="36" style="display:block">
       <div>
         <h1>Pool Pilot</h1>
-        <span class="sub">Arrive · Relay → Swap</span>
+        <span class="sub">poolpilot.xyz</span>
       </div>
     </a>
     <div class="spacer"></div>
-    <a class="btn btn-ghost" href="/swap" data-testid="link-arrive-swap-nav">Swap</a>
+    <nav class="arrive-nav" aria-label="Pool Pilot">
+      <a class="btn btn-ghost" href="/" data-testid="link-arrive-home">Home</a>
+      <a class="btn btn-ghost" href="/swap" data-testid="link-arrive-swap-nav">Swap</a>
+      <a class="btn btn-ghost" href="/start" data-testid="link-arrive-start">Start</a>
+    </nav>
   </header>
 
   <section class="card" aria-label="Arrive on Robinhood" data-testid="card-arrive">
@@ -87,9 +138,33 @@
       </div>
     </div>
 
+    <div class="arrive-more" data-testid="arrive-more">
+      <h3>Then look around poolpilot.xyz</h3>
+      <p>Arrive gets you on-chain. The rest of the site is the full desk — swap, check your pool, launch a token.</p>
+      <div class="arrive-more-grid">
+        <a class="more-row" href="/swap" data-testid="link-arrive-more-swap">
+          <strong>Swap desk</strong>
+          <span>Trade ETH, cash, or any Robinhood token. You sign every step.</span>
+        </a>
+        <a class="more-row" href="/" data-testid="link-arrive-more-home">
+          <strong>Liquidity copilot</strong>
+          <span>See if your pool is healthy and what to do next — deepen, straddle, collect fees.</span>
+        </a>
+        <a class="more-row" href="/start" data-testid="link-arrive-more-start">
+          <strong>Start your token</strong>
+          <span>Stage a serious launch on Robinhood Chain — rails, checklist, no lottery vibes.</span>
+        </a>
+        <a class="more-row" href="/#fundCard" data-testid="link-arrive-more-fund">
+          <strong>Bring value to Robinhood</strong>
+          <span>Bridge paths and orphan Solana cash-out — same playbook as Arrive.</span>
+        </a>
+      </div>
+      <p class="arrive-brand">Always: <a href="https://poolpilot.xyz/">poolpilot.xyz</a></p>
+    </div>
+
     <p class="arrive-note">
       Relay has no automatic return URL — bookmark this page or keep the tab open.
-      Agents: <a href="/llms.txt">llms.txt</a> · Fund card: <a href="/#fundCard">Bring value to RH</a>
+      Agents: <a href="/llms.txt">llms.txt</a>
     </p>
   </section>
 </div>
