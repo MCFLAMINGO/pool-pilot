@@ -1,7 +1,7 @@
 # Pool Pilot Mini App — give this to RH token communities
 
 ## How you earn
-Every swap through the desk skims **0.30%** to the treasury (`TREASURY` on-chain).  
+Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim is split: most goes into a treasury-owned **MCFL buy-wall LP** (ETH into the book), and the rest quietly buys **MCFL** into the treasury wallet — same Swap button, no separate steps. Other input assets still transfer to treasury as-is.  
 Communities get a free Mini App link; you earn when they trade.
 
 ## What to send them (example: MCFL)

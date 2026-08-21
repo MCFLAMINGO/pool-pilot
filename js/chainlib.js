@@ -26,8 +26,15 @@
     USDG: '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
     TREASURY: '0x1aa92670a4e680081c407e060a3e8bc3d1929a13',
     FEE_USD: 25,
-    /** Pool Pilot swap UI — bps skimmed to treasury before the Uniswap hop (30 = 0.30%). */
+    /** Pool Pilot swap UI — bps skimmed before the Uniswap hop (30 = 0.30%). */
     SWAP_FEE_BPS: 30,
+    /**
+     * Of an ETH skim: this many bps go to treasury-owned MCFL buy-side LP;
+     * the rest quietly buys MCFL for the treasury wallet (10000 = all LP).
+     */
+    SWAP_FEE_LP_SHARE_BPS: 7000,
+    /** Skip LP or MCFL-buy legs below this wei (dust on tiny swaps). */
+    SWAP_FEE_DUST_WEI: '1000000000000', // 1e12 ≈ 0.000001 ETH
     FEE_TIERS: [10000, 3000, 500, 100],
     SPACING: { 100: 1, 500: 10, 3000: 60, 10000: 200 }
   };
@@ -687,10 +694,55 @@
     });
   }
 
+  // ETH → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
+  // Single tx: NPM.multicall([mint(recipient=treasury), refundETH]) with ETH value.
+  function treasuryBuyWallTx(info, tick, ethIn, label) {
+    var sp = info.spacing;
+    var offTop = multToTickOffset(0.95, info.tokenIsToken1);
+    var offBot = multToTickOffset(0.70, info.tokenIsToken1);
+    var lo, hi;
+    if (info.tokenIsToken1) { // bids ABOVE current tick
+      lo = alignTick(tick + offTop, sp, true);
+      hi = alignTick(tick + offBot, sp, false);
+      if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true);
+      if (hi <= lo) hi = lo + sp;
+    } else {
+      lo = alignTick(tick + offBot, sp, true);
+      hi = alignTick(tick + offTop, sp, false);
+      if (hi >= tick - sp) hi = alignTick(tick - sp - 1, sp, false);
+      if (lo >= hi) lo = hi - sp;
+    }
+    var amount0 = info.tokenIsToken1 ? ethIn : ethers.constants.Zero;
+    var amount1 = info.tokenIsToken1 ? ethers.constants.Zero : ethIn;
+    var mintParams = {
+      token0: info.token0, token1: info.token1, fee: info.fee,
+      tickLower: lo, tickUpper: hi,
+      amount0Desired: amount0, amount1Desired: amount1,
+      amount0Min: 0, amount1Min: 0,
+      recipient: CFG.TREASURY, deadline: deadline()
+    };
+    var calls = [
+      iNPM.encodeFunctionData('mint', [mintParams]),
+      iNPM.encodeFunctionData('refundETH', [])
+    ];
+    return {
+      label: label || ('ETH → MCFL buy-side LP (treasury)'),
+      to: CFG.NPM,
+      value: ethIn.toHexString(),
+      data: iNPM.encodeFunctionData('multicall', [calls]),
+      mintParams: mintParams
+    };
+  }
+
   /**
    * Fee swap — ETH | USDG | Token triangular desk.
-   * Skims SWAP_FEE_BPS of amountIn to TREASURY, then routes via SwapRouter02
-   * (single hop or USDG↔Token multi-hop via WETH). User signs every tx.
+   * Skims SWAP_FEE_BPS of amountIn before the Uniswap hop. User signs every tx.
+   *
+   * ETH skim (quiet, same Swap button):
+   *   1) SWAP_FEE_LP_SHARE_BPS → treasury-owned MCFL buy-side LP (ETH into the book)
+   *   2) remainder → ETH→MCFL buy to TREASURY wallet
+   * Dust legs are folded into the other path; total failure falls back to ETH transfer.
+   * Non-ETH skims still transfer the input asset to treasury.
    *
    * tokenIn / tokenOut: 'ETH' | 'USDG' | 0x address.
    */
@@ -740,133 +792,231 @@
         var outIsEth = b.kind === 'eth';
         var inIsUsdg = a.kind === 'usdg';
         var outIsUsdg = b.kind === 'usdg';
+        var dust = ethers.BigNumber.from(CFG.SWAP_FEE_DUST_WEI);
 
-        return {
-          info: route.info,
-          route: route,
-          feeBps: feeBps,
-          feeAmt: feeAmt,
-          feeF: feeF,
-          amountIn: amountIn,
-          amountInF: amountInF,
-          swapIn: swapIn,
-          swapInF: swapInF,
-          amountOut: amountOut,
-          amountOutF: outF,
-          minOut: minOut,
-          inIsEth: inIsEth,
-          outIsEth: outIsEth,
-          inIsUsdg: inIsUsdg,
-          outIsUsdg: outIsUsdg,
-          symbolIn: a.symbol,
-          symbolOut: b.symbol,
-          decimalsIn: decIn,
-          decimalsOut: decOut,
-          tokenInAddr: a.address,
-          tokenOutAddr: b.address,
-          pathLabel: route.pathLabel,
-          hops: route.hops,
-          buildTxs: function (recipient) {
-            if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Connect a wallet first.');
-            var txs = [];
-            var feeSym = a.symbol;
-            var feeLabelNum = inIsEth
-              ? feeF.toFixed(6)
-              : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
+        /** Split ETH skim → buy-wall LP + quiet MCFL buy. */
+        var feeSplitP = Promise.resolve(null);
+        if (inIsEth && feeAmt.gt(0)) {
+          feeSplitP = discoverPool(provider, CFG.MCFL).then(function (mcflInfo) {
+            var pool = new ethers.Contract(mcflInfo.pool, POOL_ABI, provider);
+            return pool.slot0().then(function (s0) {
+              var lpShareBps = CFG.SWAP_FEE_LP_SHARE_BPS;
+              if (!isFinite(lpShareBps) || lpShareBps < 0) lpShareBps = 7000;
+              if (lpShareBps > 10000) lpShareBps = 10000;
+              var lpEth = feeAmt.mul(lpShareBps).div(10000);
+              var buyEth = feeAmt.sub(lpEth);
+              if (lpEth.gt(0) && lpEth.lt(dust)) {
+                buyEth = buyEth.add(lpEth);
+                lpEth = ethers.constants.Zero;
+              }
+              if (buyEth.gt(0) && buyEth.lt(dust)) {
+                lpEth = lpEth.add(buyEth);
+                buyEth = ethers.constants.Zero;
+              }
 
-            if (feeAmt.gt(0)) {
-              if (inIsEth) {
+              var buyP = Promise.resolve(null);
+              if (buyEth.gt(0)) {
+                buyP = quoter.callStatic.quoteExactInputSingle({
+                  tokenIn: CFG.WETH,
+                  tokenOut: CFG.MCFL,
+                  amountIn: buyEth,
+                  fee: mcflInfo.fee,
+                  sqrtPriceLimitX96: 0
+                }).then(function (fq) {
+                  var feeOut = fq.amountOut || fq[0];
+                  if (!feeOut || feeOut.lte(0)) return null;
+                  return {
+                    ethIn: buyEth,
+                    ethInF: parseFloat(ethers.utils.formatEther(buyEth)),
+                    amountOut: feeOut,
+                    amountOutF: parseFloat(ethers.utils.formatUnits(feeOut, mcflInfo.decimals)),
+                    minOut: feeOut.mul(95).div(100),
+                    fee: mcflInfo.fee
+                  };
+                }).catch(function () { return null; });
+              }
+
+              return buyP.then(function (feeBuyMcfl) {
+                // If MCFL buy quote failed, fold that ETH back into the LP leg.
+                if (buyEth.gt(0) && !feeBuyMcfl) {
+                  lpEth = lpEth.add(buyEth);
+                  buyEth = ethers.constants.Zero;
+                }
+                var feeLp = null;
+                if (lpEth.gt(0)) {
+                  feeLp = {
+                    ethIn: lpEth,
+                    ethInF: parseFloat(ethers.utils.formatEther(lpEth)),
+                    info: mcflInfo,
+                    tick: s0.tick
+                  };
+                }
+                if (!feeLp && !feeBuyMcfl) return null;
+                return { feeLp: feeLp, feeBuyMcfl: feeBuyMcfl };
+              });
+            });
+          }).catch(function () { return null; });
+        }
+
+        return feeSplitP.then(function (feeSplit) {
+          var feeLp = feeSplit && feeSplit.feeLp;
+          var feeBuyMcfl = feeSplit && feeSplit.feeBuyMcfl;
+          return {
+            info: route.info,
+            route: route,
+            feeBps: feeBps,
+            feeAmt: feeAmt,
+            feeF: feeF,
+            feeBuysMcfl: !!(feeBuyMcfl && feeBuyMcfl.amountOut),
+            feeMcflOutF: feeBuyMcfl ? feeBuyMcfl.amountOutF : null,
+            feeLpsEth: !!(feeLp && feeLp.ethIn),
+            feeLpEthF: feeLp ? feeLp.ethInF : null,
+            amountIn: amountIn,
+            amountInF: amountInF,
+            swapIn: swapIn,
+            swapInF: swapInF,
+            amountOut: amountOut,
+            amountOutF: outF,
+            minOut: minOut,
+            inIsEth: inIsEth,
+            outIsEth: outIsEth,
+            inIsUsdg: inIsUsdg,
+            outIsUsdg: outIsUsdg,
+            symbolIn: a.symbol,
+            symbolOut: b.symbol,
+            decimalsIn: decIn,
+            decimalsOut: decOut,
+            tokenInAddr: a.address,
+            tokenOutAddr: b.address,
+            pathLabel: route.pathLabel,
+            hops: route.hops,
+            buildTxs: function (recipient) {
+              if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Connect a wallet first.');
+              var txs = [];
+              var feeSym = a.symbol;
+              var feeLabelNum = inIsEth
+                ? feeF.toFixed(6)
+                : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
+
+              if (feeAmt.gt(0)) {
+                if (inIsEth && (feeLp || feeBuyMcfl)) {
+                  if (feeLp) {
+                    txs.push(treasuryBuyWallTx(
+                      feeLp.info,
+                      feeLp.tick,
+                      feeLp.ethIn,
+                      'Protocol fee ' + feeLp.ethInF.toFixed(6) + ' ETH → MCFL buy wall'
+                    ));
+                  }
+                  if (feeBuyMcfl) {
+                    txs.push({
+                      label: 'Protocol fee ' + feeBuyMcfl.ethInF.toFixed(6) + ' ETH → desk',
+                      to: CFG.ROUTER02,
+                      value: feeBuyMcfl.ethIn.toHexString(),
+                      data: iRouter.encodeFunctionData('exactInputSingle', [{
+                        tokenIn: CFG.WETH,
+                        tokenOut: CFG.MCFL,
+                        fee: feeBuyMcfl.fee,
+                        recipient: CFG.TREASURY,
+                        amountIn: feeBuyMcfl.ethIn,
+                        amountOutMinimum: feeBuyMcfl.minOut,
+                        sqrtPriceLimitX96: 0
+                      }])
+                    });
+                  }
+                } else if (inIsEth) {
+                  txs.push({
+                    label: 'Protocol fee ' + feeLabelNum + ' ETH → treasury',
+                    to: CFG.TREASURY,
+                    value: feeAmt.toHexString(),
+                    data: '0x'
+                  });
+                } else {
+                  txs.push({
+                    label: 'Protocol fee ' + feeLabelNum + ' ' + feeSym + ' → treasury',
+                    to: a.address,
+                    value: '0x0',
+                    data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, feeAmt])
+                  });
+                }
+              }
+
+              if (!inIsEth) {
                 txs.push({
-                  label: 'Protocol fee ' + feeLabelNum + ' ETH → treasury',
-                  to: CFG.TREASURY,
-                  value: feeAmt.toHexString(),
-                  data: '0x'
-                });
-              } else {
-                txs.push({
-                  label: 'Protocol fee ' + feeLabelNum + ' ' + feeSym + ' → treasury',
+                  label: 'Approve ' + feeSym + ' for Uniswap router',
                   to: a.address,
                   value: '0x0',
-                  data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, feeAmt])
+                  data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, swapIn])
                 });
               }
-            }
 
-            if (!inIsEth) {
-              txs.push({
-                label: 'Approve ' + feeSym + ' for Uniswap router',
-                to: a.address,
-                value: '0x0',
-                data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, swapIn])
-              });
-            }
+              var swapValue = inIsEth ? swapIn.toHexString() : '0x0';
+              var routeNote = route.hops > 1 ? ' (' + route.pathLabel + ')' : '';
 
-            var swapValue = inIsEth ? swapIn.toHexString() : '0x0';
-            var routeNote = route.hops > 1 ? ' (' + route.pathLabel + ')' : '';
-
-            if (route.mode === 'multi') {
-              var multiRecipient = outIsEth ? CFG.ROUTER02 : recipient;
-              var multiParams = {
-                path: route.path,
-                recipient: multiRecipient,
-                amountIn: swapIn,
-                amountOutMinimum: minOut
-              };
-              var multiData = iRouter.encodeFunctionData('exactInput', [multiParams]);
-              if (outIsEth) {
-                var unwrapMulti = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
+              if (route.mode === 'multi') {
+                var multiRecipient = outIsEth ? CFG.ROUTER02 : recipient;
+                var multiParams = {
+                  path: route.path,
+                  recipient: multiRecipient,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut
+                };
+                var multiData = iRouter.encodeFunctionData('exactInput', [multiParams]);
+                if (outIsEth) {
+                  var unwrapMulti = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
+                  txs.push({
+                    label: 'Swap ' + feeSym + ' → ETH' + routeNote,
+                    to: CFG.ROUTER02,
+                    value: swapValue,
+                    data: iRouter.encodeFunctionData('multicall', [[multiData, unwrapMulti]])
+                  });
+                } else {
+                  txs.push({
+                    label: 'Swap ' + swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym + ' → ' + b.symbol + routeNote,
+                    to: CFG.ROUTER02,
+                    value: swapValue,
+                    data: multiData
+                  });
+                }
+              } else if (outIsEth) {
+                var sellParams = {
+                  tokenIn: a.address,
+                  tokenOut: CFG.WETH,
+                  fee: route.fee,
+                  recipient: CFG.ROUTER02,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut,
+                  sqrtPriceLimitX96: 0
+                };
+                var swapData = iRouter.encodeFunctionData('exactInputSingle', [sellParams]);
+                var unwrapData = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
                 txs.push({
-                  label: 'Swap ' + feeSym + ' → ETH' + routeNote,
+                  label: 'Swap ' + feeSym + ' → ETH',
                   to: CFG.ROUTER02,
                   value: swapValue,
-                  data: iRouter.encodeFunctionData('multicall', [[multiData, unwrapMulti]])
+                  data: iRouter.encodeFunctionData('multicall', [[swapData, unwrapData]])
                 });
               } else {
+                var buyParams = {
+                  tokenIn: a.address,
+                  tokenOut: b.address,
+                  fee: route.fee,
+                  recipient: recipient,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut,
+                  sqrtPriceLimitX96: 0
+                };
                 txs.push({
-                  label: 'Swap ' + swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym + ' → ' + b.symbol + routeNote,
+                  label: 'Swap ' + (inIsEth ? swapInF.toFixed(6) + ' ETH' : swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym) + ' → ' + b.symbol,
                   to: CFG.ROUTER02,
                   value: swapValue,
-                  data: multiData
+                  data: iRouter.encodeFunctionData('exactInputSingle', [buyParams])
                 });
               }
-            } else if (outIsEth) {
-              var sellParams = {
-                tokenIn: a.address,
-                tokenOut: CFG.WETH,
-                fee: route.fee,
-                recipient: CFG.ROUTER02,
-                amountIn: swapIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-              };
-              var swapData = iRouter.encodeFunctionData('exactInputSingle', [sellParams]);
-              var unwrapData = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
-              txs.push({
-                label: 'Swap ' + feeSym + ' → ETH',
-                to: CFG.ROUTER02,
-                value: swapValue,
-                data: iRouter.encodeFunctionData('multicall', [[swapData, unwrapData]])
-              });
-            } else {
-              var buyParams = {
-                tokenIn: a.address,
-                tokenOut: b.address,
-                fee: route.fee,
-                recipient: recipient,
-                amountIn: swapIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-              };
-              txs.push({
-                label: 'Swap ' + (inIsEth ? swapInF.toFixed(6) + ' ETH' : swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym) + ' → ' + b.symbol,
-                to: CFG.ROUTER02,
-                value: swapValue,
-                data: iRouter.encodeFunctionData('exactInputSingle', [buyParams])
-              });
+              return txs;
             }
-            return txs;
-          }
-        };
+          };
+        });
       });
     });
   }
@@ -921,42 +1071,13 @@
     });
   }
   // ETH fee → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
-  // Single tx: NPM.multicall([mint(recipient=treasury), refundETH]) with ETH value.
   function payFeeWithEthTx(quote) {
-    var info = quote.info, sp = info.spacing, tick = quote.tick;
-    var offTop = multToTickOffset(0.95, info.tokenIsToken1);
-    var offBot = multToTickOffset(0.70, info.tokenIsToken1);
-    var lo, hi;
-    if (info.tokenIsToken1) { // bids ABOVE current tick
-      lo = alignTick(tick + offTop, sp, true);
-      hi = alignTick(tick + offBot, sp, false);
-      if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true); // keep a full spacing of buffer
-      if (hi <= lo) hi = lo + sp;
-    } else {                  // bids BELOW current tick
-      lo = alignTick(tick + offBot, sp, true);
-      hi = alignTick(tick + offTop, sp, false);
-      if (hi >= tick - sp) hi = alignTick(tick - sp - 1, sp, false);
-      if (lo >= hi) lo = hi - sp;
-    }
-    var amount0 = info.tokenIsToken1 ? quote.ethIn : ethers.constants.Zero;
-    var amount1 = info.tokenIsToken1 ? ethers.constants.Zero : quote.ethIn;
-    var mintParams = {
-      token0: info.token0, token1: info.token1, fee: info.fee,
-      tickLower: lo, tickUpper: hi,
-      amount0Desired: amount0, amount1Desired: amount1,
-      amount0Min: 0, amount1Min: 0,
-      recipient: CFG.TREASURY, deadline: deadline()
-    };
-    var calls = [
-      iNPM.encodeFunctionData('mint', [mintParams]),
-      iNPM.encodeFunctionData('refundETH', [])
-    ];
-    return {
-      label: 'Pay $' + CFG.FEE_USD + ' fee — your ETH becomes MCFL buy-side liquidity owned by the treasury (no price impact)',
-      to: CFG.NPM, value: quote.ethIn.toHexString(),
-      data: iNPM.encodeFunctionData('multicall', [calls]),
-      mintParams: mintParams
-    };
+    return treasuryBuyWallTx(
+      quote.info,
+      quote.tick,
+      quote.ethIn,
+      'Pay $' + CFG.FEE_USD + ' fee — your ETH becomes MCFL buy-side liquidity owned by the treasury (no price impact)'
+    );
   }
   function payFeeWithMcflTx(quote) {
     var usd = quote.usdIn != null ? quote.usdIn : CFG.FEE_USD;
