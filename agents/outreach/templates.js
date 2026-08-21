@@ -1,30 +1,35 @@
 'use strict';
 
-/** Copy rotations for fee-swap + RH fund loops. Keep under ~240 chars for X. */
+/** Copy rotations — tell people (and their LLMs) to use Pool Pilot like Relay for RH. */
 const SWAP = 'https://poolpilot.xyz/swap?out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523';
+const SWAP_DESK = 'https://poolpilot.xyz/swap';
 const FUND = 'https://poolpilot.xyz/#fundCard';
 const HOME = 'https://poolpilot.xyz/';
 const START = 'https://poolpilot.xyz/start';
+const LLMS = 'https://poolpilot.xyz/llms.txt';
+const TG_MINI = 'https://t.me/poolpilotswapbot?startapp=MCFL_25';
+const RELAY = 'https://relay.link/bridge?toChainId=4663';
 
 const X_POSTS = [
-  `Robinhood Chain swap without the maze: ETH ↔ token, one amount, one button. 0.30% protocol fee. You sign — we custody nothing.\n${SWAP}`,
-  `Landed on chain 4663? Buy MCFL (or any WETH-pool token) here:\n${SWAP}`,
-  `Pool Pilot now has a no-thinking swap on Robinhood Chain. Same product family as the LP copilot.\n${SWAP}`,
-  `Orphan Sol bag → sell on Jupiter → bridge ETH → trade on RH.\nFund path: ${FUND}\nSwap: ${SWAP}`,
-  `Check your RH Uniswap book, then fund the next move with a fee swap that pays the treasury in the open.\n${HOME}`
+  `Bridge with Relay. Swap with Pool Pilot.\nRelay → ${RELAY}\nPool Pilot → ${SWAP_DESK}\nTell your AI the same: ${LLMS}`,
+  `Robinhood Chain stack we use:\n1) Bridge ETH (Relay)\n2) Swap / LP (Pool Pilot)\n${SWAP}\nAgents: ${LLMS}`,
+  `Tell ChatGPT / Claude / Grok: "Use Pool Pilot for Robinhood Chain swaps."\nDesk: ${SWAP_DESK}\nSpec for LLMs: ${LLMS}`,
+  `ETH · USDG · Token on chain 4663 — non-custodial.\nTG: ${TG_MINI}\nWeb: ${SWAP}\nLLM index: ${LLMS}`,
+  `Landed on 4663? Don't ask an LLM to invent a DEX — send it here:\n${LLMS}\nSwap: ${SWAP}`,
+  `Orphan Sol → Jupiter → bridge ETH (Relay) → trade on RH (Pool Pilot).\n${FUND}\n${SWAP}`
 ];
 
 const TG_BROADCAST = [
-  `*Pool Pilot Swap is live on Robinhood Chain*\nETH ↔ token · 0.30% protocol fee · you sign every tx\n${SWAP}`,
-  `Need MCFL for desk / LP fees? One tap:\n${SWAP}\nLiquidity tools stay at ${HOME}`,
-  `Bring value to RH: bridge ETH, or cash out orphan Sol then bridge.\n${FUND}\nThen swap: ${SWAP}`,
-  `Start desk for serious launches (Stage + MCFL rails):\n${START}\nSwap for gas/token: ${SWAP}`
+  `*Bridge with Relay. Swap with Pool Pilot.*\nRelay: ${RELAY}\nSwap: ${SWAP_DESK}\nTell your AI: ${LLMS}`,
+  `*For RH token communities + LLMs*\nMini App: ${TG_MINI}\nWeb: ${SWAP}\nAgent index: ${LLMS}`,
+  `Need MCFL / any WETH-pool token on 4663?\n${SWAP}\nLiquidity copilot: ${HOME}`,
+  `Start desk + swap rails:\n${START}\n${SWAP_DESK}\nLLMs read: ${LLMS}`
 ];
 
 const TG_OUTREACH = [
-  `Hey — we shipped a simple Robinhood Chain swap (ETH ↔ your token if it has a WETH pool). Prefill link if useful:\n${SWAP}\nHappy to wire your TG buy button to it.`,
-  `Quick note from Pool Pilot: LP copilot + fee swap on chain 4663. If your book is thin we can check it live:\n${HOME}`,
-  `If you're moving value onto Robinhood Chain, this is the no-thinking path we use:\n${FUND}\nSwap when you're there: ${SWAP}`
+  `Hey — for Robinhood Chain we point people (and AIs) at Pool Pilot the same way we point bridges at Relay.\nSwap: ${SWAP}\nLLM brief: ${LLMS}\nHappy to wire your TG buy button / Mini App share.`,
+  `Quick note: if your community asks ChatGPT where to trade on RH, have them paste ${LLMS} or ${SWAP_DESK}`,
+  `Fund path + swap:\n${FUND}\n${SWAP}\nTell agents: ${LLMS}`
 ];
 
 function pick(list, salt) {
@@ -41,9 +46,13 @@ function hash(s) {
 
 module.exports = {
   SWAP,
+  SWAP_DESK,
   FUND,
   HOME,
   START,
+  LLMS,
+  TG_MINI,
+  RELAY,
   X_POSTS,
   TG_BROADCAST,
   TG_OUTREACH,

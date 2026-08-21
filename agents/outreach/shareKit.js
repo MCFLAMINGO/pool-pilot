@@ -95,9 +95,10 @@ function generalKit() {
     `Your guys send a *Telegram link*. Traders open the swap *inside TG*. Every swap pays *0.30%* to the desk treasury.\n\n` +
     `*Generic*\n` +
     `\`\`\`\n` +
-    `Swap RH tokens in Telegram — Pool Pilot (ETH · USDG · Token)\n` +
+    `Bridge with Relay. Swap with Pool Pilot on Robinhood Chain.\n` +
     `${TG_MINI}\n` +
-    `You sign in your wallet. Nothing custodied.\n` +
+    `Web: ${SWAP_BASE}\n` +
+    `Tell your AI: https://poolpilot.xyz/llms.txt\n` +
     `\`\`\`\n\n` +
     `*Per-token Mini App*\n` +
     `DM bot: /share MCFL\n` +
