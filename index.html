@@ -133,14 +133,15 @@
 
   <section class="card" id="fundCard" aria-label="Bring value to Robinhood" data-testid="card-fund-rh">
     <h2>Bring value to Robinhood</h2>
-    <p style="font-size:var(--text-sm);color:var(--text-muted);margin:0 0 var(--space-4)">Pool Pilot only runs on chain <strong>4663</strong>. Same playbook we give humans and AIs: <strong>bridge with Relay → swap/LP with Pool Pilot</strong>. We don’t custody funds — these open the right tool with the destination already set. Agents: <a href="/llms.txt">llms.txt</a>.</p>
+    <p style="font-size:var(--text-sm);color:var(--text-muted);margin:0 0 var(--space-4)">Pool Pilot only runs on chain <strong>4663</strong>. Same playbook we give humans and AIs: <strong>bridge with Relay → swap/LP with Pool Pilot</strong>. Start at <a href="/arrive">Arrive</a> for the prefilled two-step. Agents: <a href="/llms.txt">llms.txt</a>.</p>
 
     <div class="fund-path">
       <div class="fund-path-title">1 · Gas money (no thinking)</div>
-      <p class="fund-path-body">Bridge <strong>ETH</strong> to Robinhood on your same <span class="mono">0x</span>. Use this before deepen / straddle / fees.</p>
+      <p class="fund-path-body">Bridge <strong>ETH</strong> to Robinhood on your same <span class="mono">0x</span>, then come back to swap. Use this before deepen / straddle / fees.</p>
       <div class="fund-actions">
-        <a class="btn btn-primary" href="https://jumper.xyz/?toChain=4663" target="_blank" rel="noopener" data-testid="link-jumper-rh">Bridge ETH · Jumper</a>
-        <a class="btn btn-ghost" href="https://relay.link/bridge?toChainId=4663" target="_blank" rel="noopener" data-testid="link-relay-rh">Bridge ETH · Relay</a>
+        <a class="btn btn-primary" href="/arrive" data-testid="link-arrive-rh">Arrive · Relay → Swap</a>
+        <a class="btn btn-ghost" href="https://relay.link/bridge/robinhood?fromChainId=1" target="_blank" rel="noopener" data-testid="link-relay-rh">Relay only</a>
+        <a class="btn btn-ghost" href="https://jumper.xyz/?toChain=4663" target="_blank" rel="noopener" data-testid="link-jumper-rh">Jumper</a>
         <a class="btn btn-ghost" href="https://portal.arbitrum.io/bridge?destinationChain=robinhood-chain" target="_blank" rel="noopener" data-testid="link-arb-portal-rh">Arbitrum portal</a>
       </div>
     </div>

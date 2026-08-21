@@ -604,6 +604,7 @@
   var out = q.get('out') || q.get('token') || q.get('buy');
   var inn = (q.get('in') || '').toLowerCase();
   var outSide = (q.get('to') || q.get('sideOut') || '').toLowerCase();
+  var fromRelay = (q.get('from') || '').toLowerCase() === 'relay';
 
   if (inn === 'usdg') $('tokenInSel').value = 'USDG';
   else if (inn === 'token' || inn === 'erc20') $('tokenInSel').value = 'TOKEN';
@@ -632,6 +633,13 @@
   if ((q.get('usd') || q.get('amountUsd'))) {
     S.amountMode = 'usd';
     $('amountIn').value = q.get('usd') || q.get('amountUsd');
+  }
+  if (fromRelay) {
+    var ab = $('arriveBanner');
+    if (ab) {
+      ab.innerHTML = 'Back from Relay — desk is prefilled. Connect wallet on <strong>4663</strong> and swap. Need the bridge again? <a href="/arrive">Arrive</a>';
+      ab.classList.remove('hidden');
+    }
   }
   syncTokenPick();
   updateUnitBtn();
