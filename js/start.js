@@ -27,7 +27,8 @@
     gemini: 'https://gemini.google.com/app',
     rhBridge: 'https://portal.arbitrum.io/bridge?destinationChain=robinhood-chain',
     jumperRh: 'https://jumper.xyz/?toChain=4663',
-    relayRh: 'https://relay.link/bridge?toChainId=4663',
+    relayRh: 'https://relay.link/bridge/robinhood?fromChainId=1',
+    arriveRh: '/arrive',
     jupiterSwap: 'https://jup.ag/swap/SOL',
     fundRh: 'index.html#fundCard',
     solanaMint: 'https://solscan.io/token/CdmKJqhHEkqTr1BFBdcoBNHQvh2BEqLap6ivt2b2pump'
@@ -639,9 +640,10 @@
         title: 'Seed liquidity (50/50)',
         why: 'Your start money becomes half ETH and half token in the pool — you’re building the book. No real price until ETH fills the seed target. Serious floor ~$5k–$15k concentrated near spot.',
         actions: [
+          { label: 'Arrive · Relay → Swap', href: LINKS.arriveRh },
           { label: 'Open Pool Pilot (seed / deepen book)', href: LINKS.poolPilot },
-          { label: 'Bridge ETH · Jumper', href: LINKS.jumperRh, external: true },
-          { label: 'Bridge ETH · Relay', href: LINKS.relayRh, external: true }
+          { label: 'Bridge ETH · Relay', href: LINKS.relayRh, external: true },
+          { label: 'Bridge ETH · Jumper', href: LINKS.jumperRh, external: true }
         ]
       },
       {
