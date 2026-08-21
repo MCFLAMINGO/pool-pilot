@@ -689,8 +689,12 @@
 
   /**
    * Fee swap — ETH | USDG | Token triangular desk.
-   * Skims SWAP_FEE_BPS of amountIn to TREASURY, then routes via SwapRouter02
-   * (single hop or USDG↔Token multi-hop via WETH). User signs every tx.
+   * Skims SWAP_FEE_BPS of amountIn before the Uniswap hop. User signs every tx.
+   *
+   * Quiet MCFL buy: when paying with ETH, the skim is swapped ETH→MCFL to
+   * TREASURY (same signature flow as the main swap — no separate "buy MCFL"
+   * mental step). Non-ETH skims still transfer the input asset to treasury.
+   * If the MCFL quote fails, falls back to sending ETH to treasury.
    *
    * tokenIn / tokenOut: 'ETH' | 'USDG' | 0x address.
    */
@@ -741,132 +745,175 @@
         var inIsUsdg = a.kind === 'usdg';
         var outIsUsdg = b.kind === 'usdg';
 
-        return {
-          info: route.info,
-          route: route,
-          feeBps: feeBps,
-          feeAmt: feeAmt,
-          feeF: feeF,
-          amountIn: amountIn,
-          amountInF: amountInF,
-          swapIn: swapIn,
-          swapInF: swapInF,
-          amountOut: amountOut,
-          amountOutF: outF,
-          minOut: minOut,
-          inIsEth: inIsEth,
-          outIsEth: outIsEth,
-          inIsUsdg: inIsUsdg,
-          outIsUsdg: outIsUsdg,
-          symbolIn: a.symbol,
-          symbolOut: b.symbol,
-          decimalsIn: decIn,
-          decimalsOut: decOut,
-          tokenInAddr: a.address,
-          tokenOutAddr: b.address,
-          pathLabel: route.pathLabel,
-          hops: route.hops,
-          buildTxs: function (recipient) {
-            if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Connect a wallet first.');
-            var txs = [];
-            var feeSym = a.symbol;
-            var feeLabelNum = inIsEth
-              ? feeF.toFixed(6)
-              : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
+        /** Quote ETH fee → MCFL for treasury; null = fall back to ETH transfer. */
+        var feeBuyP = Promise.resolve(null);
+        if (inIsEth && feeAmt.gt(0)) {
+          feeBuyP = discoverPool(provider, CFG.MCFL).then(function (mcflInfo) {
+            return quoter.callStatic.quoteExactInputSingle({
+              tokenIn: CFG.WETH,
+              tokenOut: CFG.MCFL,
+              amountIn: feeAmt,
+              fee: mcflInfo.fee,
+              sqrtPriceLimitX96: 0
+            }).then(function (fq) {
+              var feeOut = fq.amountOut || fq[0];
+              if (!feeOut || feeOut.lte(0)) return null;
+              return {
+                info: mcflInfo,
+                amountOut: feeOut,
+                amountOutF: parseFloat(ethers.utils.formatUnits(feeOut, mcflInfo.decimals)),
+                // Thin book — 5% floor matches planBuyMcfl
+                minOut: feeOut.mul(95).div(100)
+              };
+            });
+          }).catch(function () { return null; });
+        }
 
-            if (feeAmt.gt(0)) {
-              if (inIsEth) {
+        return feeBuyP.then(function (feeBuyMcfl) {
+          return {
+            info: route.info,
+            route: route,
+            feeBps: feeBps,
+            feeAmt: feeAmt,
+            feeF: feeF,
+            feeBuysMcfl: !!(feeBuyMcfl && feeBuyMcfl.amountOut),
+            feeMcflOutF: feeBuyMcfl ? feeBuyMcfl.amountOutF : null,
+            amountIn: amountIn,
+            amountInF: amountInF,
+            swapIn: swapIn,
+            swapInF: swapInF,
+            amountOut: amountOut,
+            amountOutF: outF,
+            minOut: minOut,
+            inIsEth: inIsEth,
+            outIsEth: outIsEth,
+            inIsUsdg: inIsUsdg,
+            outIsUsdg: outIsUsdg,
+            symbolIn: a.symbol,
+            symbolOut: b.symbol,
+            decimalsIn: decIn,
+            decimalsOut: decOut,
+            tokenInAddr: a.address,
+            tokenOutAddr: b.address,
+            pathLabel: route.pathLabel,
+            hops: route.hops,
+            buildTxs: function (recipient) {
+              if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Connect a wallet first.');
+              var txs = [];
+              var feeSym = a.symbol;
+              var feeLabelNum = inIsEth
+                ? feeF.toFixed(6)
+                : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
+
+              if (feeAmt.gt(0)) {
+                if (inIsEth && feeBuyMcfl && feeBuyMcfl.amountOut) {
+                  txs.push({
+                    label: 'Protocol fee ' + feeLabelNum + ' ETH → desk',
+                    to: CFG.ROUTER02,
+                    value: feeAmt.toHexString(),
+                    data: iRouter.encodeFunctionData('exactInputSingle', [{
+                      tokenIn: CFG.WETH,
+                      tokenOut: CFG.MCFL,
+                      fee: feeBuyMcfl.info.fee,
+                      recipient: CFG.TREASURY,
+                      amountIn: feeAmt,
+                      amountOutMinimum: feeBuyMcfl.minOut,
+                      sqrtPriceLimitX96: 0
+                    }])
+                  });
+                } else if (inIsEth) {
+                  txs.push({
+                    label: 'Protocol fee ' + feeLabelNum + ' ETH → treasury',
+                    to: CFG.TREASURY,
+                    value: feeAmt.toHexString(),
+                    data: '0x'
+                  });
+                } else {
+                  txs.push({
+                    label: 'Protocol fee ' + feeLabelNum + ' ' + feeSym + ' → treasury',
+                    to: a.address,
+                    value: '0x0',
+                    data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, feeAmt])
+                  });
+                }
+              }
+
+              if (!inIsEth) {
                 txs.push({
-                  label: 'Protocol fee ' + feeLabelNum + ' ETH → treasury',
-                  to: CFG.TREASURY,
-                  value: feeAmt.toHexString(),
-                  data: '0x'
-                });
-              } else {
-                txs.push({
-                  label: 'Protocol fee ' + feeLabelNum + ' ' + feeSym + ' → treasury',
+                  label: 'Approve ' + feeSym + ' for Uniswap router',
                   to: a.address,
                   value: '0x0',
-                  data: iERC20.encodeFunctionData('transfer', [CFG.TREASURY, feeAmt])
+                  data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, swapIn])
                 });
               }
-            }
 
-            if (!inIsEth) {
-              txs.push({
-                label: 'Approve ' + feeSym + ' for Uniswap router',
-                to: a.address,
-                value: '0x0',
-                data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, swapIn])
-              });
-            }
+              var swapValue = inIsEth ? swapIn.toHexString() : '0x0';
+              var routeNote = route.hops > 1 ? ' (' + route.pathLabel + ')' : '';
 
-            var swapValue = inIsEth ? swapIn.toHexString() : '0x0';
-            var routeNote = route.hops > 1 ? ' (' + route.pathLabel + ')' : '';
-
-            if (route.mode === 'multi') {
-              var multiRecipient = outIsEth ? CFG.ROUTER02 : recipient;
-              var multiParams = {
-                path: route.path,
-                recipient: multiRecipient,
-                amountIn: swapIn,
-                amountOutMinimum: minOut
-              };
-              var multiData = iRouter.encodeFunctionData('exactInput', [multiParams]);
-              if (outIsEth) {
-                var unwrapMulti = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
+              if (route.mode === 'multi') {
+                var multiRecipient = outIsEth ? CFG.ROUTER02 : recipient;
+                var multiParams = {
+                  path: route.path,
+                  recipient: multiRecipient,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut
+                };
+                var multiData = iRouter.encodeFunctionData('exactInput', [multiParams]);
+                if (outIsEth) {
+                  var unwrapMulti = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
+                  txs.push({
+                    label: 'Swap ' + feeSym + ' → ETH' + routeNote,
+                    to: CFG.ROUTER02,
+                    value: swapValue,
+                    data: iRouter.encodeFunctionData('multicall', [[multiData, unwrapMulti]])
+                  });
+                } else {
+                  txs.push({
+                    label: 'Swap ' + swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym + ' → ' + b.symbol + routeNote,
+                    to: CFG.ROUTER02,
+                    value: swapValue,
+                    data: multiData
+                  });
+                }
+              } else if (outIsEth) {
+                var sellParams = {
+                  tokenIn: a.address,
+                  tokenOut: CFG.WETH,
+                  fee: route.fee,
+                  recipient: CFG.ROUTER02,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut,
+                  sqrtPriceLimitX96: 0
+                };
+                var swapData = iRouter.encodeFunctionData('exactInputSingle', [sellParams]);
+                var unwrapData = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
                 txs.push({
-                  label: 'Swap ' + feeSym + ' → ETH' + routeNote,
+                  label: 'Swap ' + feeSym + ' → ETH',
                   to: CFG.ROUTER02,
                   value: swapValue,
-                  data: iRouter.encodeFunctionData('multicall', [[multiData, unwrapMulti]])
+                  data: iRouter.encodeFunctionData('multicall', [[swapData, unwrapData]])
                 });
               } else {
+                var buyParams = {
+                  tokenIn: a.address,
+                  tokenOut: b.address,
+                  fee: route.fee,
+                  recipient: recipient,
+                  amountIn: swapIn,
+                  amountOutMinimum: minOut,
+                  sqrtPriceLimitX96: 0
+                };
                 txs.push({
-                  label: 'Swap ' + swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym + ' → ' + b.symbol + routeNote,
+                  label: 'Swap ' + (inIsEth ? swapInF.toFixed(6) + ' ETH' : swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym) + ' → ' + b.symbol,
                   to: CFG.ROUTER02,
                   value: swapValue,
-                  data: multiData
+                  data: iRouter.encodeFunctionData('exactInputSingle', [buyParams])
                 });
               }
-            } else if (outIsEth) {
-              var sellParams = {
-                tokenIn: a.address,
-                tokenOut: CFG.WETH,
-                fee: route.fee,
-                recipient: CFG.ROUTER02,
-                amountIn: swapIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-              };
-              var swapData = iRouter.encodeFunctionData('exactInputSingle', [sellParams]);
-              var unwrapData = iRouter.encodeFunctionData('unwrapWETH9', [minOut, recipient]);
-              txs.push({
-                label: 'Swap ' + feeSym + ' → ETH',
-                to: CFG.ROUTER02,
-                value: swapValue,
-                data: iRouter.encodeFunctionData('multicall', [[swapData, unwrapData]])
-              });
-            } else {
-              var buyParams = {
-                tokenIn: a.address,
-                tokenOut: b.address,
-                fee: route.fee,
-                recipient: recipient,
-                amountIn: swapIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-              };
-              txs.push({
-                label: 'Swap ' + (inIsEth ? swapInF.toFixed(6) + ' ETH' : swapInF.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ' + feeSym) + ' → ' + b.symbol,
-                to: CFG.ROUTER02,
-                value: swapValue,
-                data: iRouter.encodeFunctionData('exactInputSingle', [buyParams])
-              });
+              return txs;
             }
-            return txs;
-          }
-        };
+          };
+        });
       });
     });
   }

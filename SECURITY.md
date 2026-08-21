@@ -27,7 +27,7 @@ Everything it does reduces to: read chain state over RPC, and hand a transaction
 | Uniswap v3 `NonfungiblePositionManager` | `0x73991a25c818bf1f1128deaab1492d45638de0d3` | `mint`, `collect`, `multicall` |
 | Uniswap v3 `SwapRouter02` | `0xcaf681a66d020601342297493863e78c959e5cb2` | Fee swap UI (`/swap`) + optional MCFL buy path |
 | MCFL | `0x21a91215fbfc4fc002b07cc87698a6fc01aed523` | ERC-20 `transfer` for the MCFL fee path |
-| Treasury | `0x1aa92670a4e680081c407e060a3e8bc3d1929a13` | Receives protocol swap fee skim + LP move fees |
+| Treasury | `0x1aa92670a4e680081c407e060a3e8bc3d1929a13` | Receives protocol swap fee skim (ETH skim → MCFL buy to this address) + LP move fees |
 
 Any transaction targeting an address outside this set is a bug. The UI prints the target contract name and address next to every step precisely so a user can verify this against their wallet popup — the wallet's own display is the final, unspoofable check.
 

@@ -410,6 +410,8 @@
         ? plan.feeF.toFixed(6) + ' ETH' + (S.ethUsd ? ' (' + fmtUsd(plan.feeF * S.ethUsd) + ')' : '')
         : plan.feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + plan.symbolIn +
           (plan.inIsUsdg ? ' (≈ ' + fmtUsd(plan.feeF) + ')' : '');
+      // Quiet: ETH skim buys MCFL for the desk inside the same Swap flow — no separate CTA.
+      if (plan.feeBuysMcfl) feeLabel += ' · desk';
 
       var approx = estimateOutUsd(plan);
       var usdLine = approx != null
