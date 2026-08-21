@@ -18,7 +18,8 @@
     "outreach:live": "node agents/outreach/run.js --tick --live",
     "outreach:bot": "node agents/outreach/bot.js",
     "outreach:share": "node agents/outreach/shareKit.js",
-    "demo:arrive": "node demo/arrive-walkthrough.mjs"
+    "demo:arrive": "node demo/arrive-walkthrough.mjs",
+    "smoke:live": "node demo/live-smoke.mjs"
   },
   "dependencies": {
     "ethers": "5.7.2"
