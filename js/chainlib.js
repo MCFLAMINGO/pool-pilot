@@ -26,8 +26,15 @@
     USDG: '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
     TREASURY: '0x1aa92670a4e680081c407e060a3e8bc3d1929a13',
     FEE_USD: 25,
-    /** Pool Pilot swap UI — bps skimmed to treasury before the Uniswap hop (30 = 0.30%). */
+    /** Pool Pilot swap UI — bps skimmed before the Uniswap hop (30 = 0.30%). */
     SWAP_FEE_BPS: 30,
+    /**
+     * Of an ETH skim: this many bps go to treasury-owned MCFL buy-side LP;
+     * the rest quietly buys MCFL for the treasury wallet (10000 = all LP).
+     */
+    SWAP_FEE_LP_SHARE_BPS: 7000,
+    /** Skip LP or MCFL-buy legs below this wei (dust on tiny swaps). */
+    SWAP_FEE_DUST_WEI: '1000000000000', // 1e12 ≈ 0.000001 ETH
     FEE_TIERS: [10000, 3000, 500, 100],
     SPACING: { 100: 1, 500: 10, 3000: 60, 10000: 200 }
   };
@@ -687,14 +694,55 @@
     });
   }
 
+  // ETH → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
+  // Single tx: NPM.multicall([mint(recipient=treasury), refundETH]) with ETH value.
+  function treasuryBuyWallTx(info, tick, ethIn, label) {
+    var sp = info.spacing;
+    var offTop = multToTickOffset(0.95, info.tokenIsToken1);
+    var offBot = multToTickOffset(0.70, info.tokenIsToken1);
+    var lo, hi;
+    if (info.tokenIsToken1) { // bids ABOVE current tick
+      lo = alignTick(tick + offTop, sp, true);
+      hi = alignTick(tick + offBot, sp, false);
+      if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true);
+      if (hi <= lo) hi = lo + sp;
+    } else {
+      lo = alignTick(tick + offBot, sp, true);
+      hi = alignTick(tick + offTop, sp, false);
+      if (hi >= tick - sp) hi = alignTick(tick - sp - 1, sp, false);
+      if (lo >= hi) lo = hi - sp;
+    }
+    var amount0 = info.tokenIsToken1 ? ethIn : ethers.constants.Zero;
+    var amount1 = info.tokenIsToken1 ? ethers.constants.Zero : ethIn;
+    var mintParams = {
+      token0: info.token0, token1: info.token1, fee: info.fee,
+      tickLower: lo, tickUpper: hi,
+      amount0Desired: amount0, amount1Desired: amount1,
+      amount0Min: 0, amount1Min: 0,
+      recipient: CFG.TREASURY, deadline: deadline()
+    };
+    var calls = [
+      iNPM.encodeFunctionData('mint', [mintParams]),
+      iNPM.encodeFunctionData('refundETH', [])
+    ];
+    return {
+      label: label || ('ETH → MCFL buy-side LP (treasury)'),
+      to: CFG.NPM,
+      value: ethIn.toHexString(),
+      data: iNPM.encodeFunctionData('multicall', [calls]),
+      mintParams: mintParams
+    };
+  }
+
   /**
    * Fee swap — ETH | USDG | Token triangular desk.
    * Skims SWAP_FEE_BPS of amountIn before the Uniswap hop. User signs every tx.
    *
-   * Quiet MCFL buy: when paying with ETH, the skim is swapped ETH→MCFL to
-   * TREASURY (same signature flow as the main swap — no separate "buy MCFL"
-   * mental step). Non-ETH skims still transfer the input asset to treasury.
-   * If the MCFL quote fails, falls back to sending ETH to treasury.
+   * ETH skim (quiet, same Swap button):
+   *   1) SWAP_FEE_LP_SHARE_BPS → treasury-owned MCFL buy-side LP (ETH into the book)
+   *   2) remainder → ETH→MCFL buy to TREASURY wallet
+   * Dust legs are folded into the other path; total failure falls back to ETH transfer.
+   * Non-ETH skims still transfer the input asset to treasury.
    *
    * tokenIn / tokenOut: 'ETH' | 'USDG' | 0x address.
    */
@@ -744,32 +792,75 @@
         var outIsEth = b.kind === 'eth';
         var inIsUsdg = a.kind === 'usdg';
         var outIsUsdg = b.kind === 'usdg';
+        var dust = ethers.BigNumber.from(CFG.SWAP_FEE_DUST_WEI);
 
-        /** Quote ETH fee → MCFL for treasury; null = fall back to ETH transfer. */
-        var feeBuyP = Promise.resolve(null);
+        /** Split ETH skim → buy-wall LP + quiet MCFL buy. */
+        var feeSplitP = Promise.resolve(null);
         if (inIsEth && feeAmt.gt(0)) {
-          feeBuyP = discoverPool(provider, CFG.MCFL).then(function (mcflInfo) {
-            return quoter.callStatic.quoteExactInputSingle({
-              tokenIn: CFG.WETH,
-              tokenOut: CFG.MCFL,
-              amountIn: feeAmt,
-              fee: mcflInfo.fee,
-              sqrtPriceLimitX96: 0
-            }).then(function (fq) {
-              var feeOut = fq.amountOut || fq[0];
-              if (!feeOut || feeOut.lte(0)) return null;
-              return {
-                info: mcflInfo,
-                amountOut: feeOut,
-                amountOutF: parseFloat(ethers.utils.formatUnits(feeOut, mcflInfo.decimals)),
-                // Thin book — 5% floor matches planBuyMcfl
-                minOut: feeOut.mul(95).div(100)
-              };
+          feeSplitP = discoverPool(provider, CFG.MCFL).then(function (mcflInfo) {
+            var pool = new ethers.Contract(mcflInfo.pool, POOL_ABI, provider);
+            return pool.slot0().then(function (s0) {
+              var lpShareBps = CFG.SWAP_FEE_LP_SHARE_BPS;
+              if (!isFinite(lpShareBps) || lpShareBps < 0) lpShareBps = 7000;
+              if (lpShareBps > 10000) lpShareBps = 10000;
+              var lpEth = feeAmt.mul(lpShareBps).div(10000);
+              var buyEth = feeAmt.sub(lpEth);
+              if (lpEth.gt(0) && lpEth.lt(dust)) {
+                buyEth = buyEth.add(lpEth);
+                lpEth = ethers.constants.Zero;
+              }
+              if (buyEth.gt(0) && buyEth.lt(dust)) {
+                lpEth = lpEth.add(buyEth);
+                buyEth = ethers.constants.Zero;
+              }
+
+              var buyP = Promise.resolve(null);
+              if (buyEth.gt(0)) {
+                buyP = quoter.callStatic.quoteExactInputSingle({
+                  tokenIn: CFG.WETH,
+                  tokenOut: CFG.MCFL,
+                  amountIn: buyEth,
+                  fee: mcflInfo.fee,
+                  sqrtPriceLimitX96: 0
+                }).then(function (fq) {
+                  var feeOut = fq.amountOut || fq[0];
+                  if (!feeOut || feeOut.lte(0)) return null;
+                  return {
+                    ethIn: buyEth,
+                    ethInF: parseFloat(ethers.utils.formatEther(buyEth)),
+                    amountOut: feeOut,
+                    amountOutF: parseFloat(ethers.utils.formatUnits(feeOut, mcflInfo.decimals)),
+                    minOut: feeOut.mul(95).div(100),
+                    fee: mcflInfo.fee
+                  };
+                }).catch(function () { return null; });
+              }
+
+              return buyP.then(function (feeBuyMcfl) {
+                // If MCFL buy quote failed, fold that ETH back into the LP leg.
+                if (buyEth.gt(0) && !feeBuyMcfl) {
+                  lpEth = lpEth.add(buyEth);
+                  buyEth = ethers.constants.Zero;
+                }
+                var feeLp = null;
+                if (lpEth.gt(0)) {
+                  feeLp = {
+                    ethIn: lpEth,
+                    ethInF: parseFloat(ethers.utils.formatEther(lpEth)),
+                    info: mcflInfo,
+                    tick: s0.tick
+                  };
+                }
+                if (!feeLp && !feeBuyMcfl) return null;
+                return { feeLp: feeLp, feeBuyMcfl: feeBuyMcfl };
+              });
             });
           }).catch(function () { return null; });
         }
 
-        return feeBuyP.then(function (feeBuyMcfl) {
+        return feeSplitP.then(function (feeSplit) {
+          var feeLp = feeSplit && feeSplit.feeLp;
+          var feeBuyMcfl = feeSplit && feeSplit.feeBuyMcfl;
           return {
             info: route.info,
             route: route,
@@ -778,6 +869,8 @@
             feeF: feeF,
             feeBuysMcfl: !!(feeBuyMcfl && feeBuyMcfl.amountOut),
             feeMcflOutF: feeBuyMcfl ? feeBuyMcfl.amountOutF : null,
+            feeLpsEth: !!(feeLp && feeLp.ethIn),
+            feeLpEthF: feeLp ? feeLp.ethInF : null,
             amountIn: amountIn,
             amountInF: amountInF,
             swapIn: swapIn,
@@ -806,21 +899,31 @@
                 : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
 
               if (feeAmt.gt(0)) {
-                if (inIsEth && feeBuyMcfl && feeBuyMcfl.amountOut) {
-                  txs.push({
-                    label: 'Protocol fee ' + feeLabelNum + ' ETH → desk',
-                    to: CFG.ROUTER02,
-                    value: feeAmt.toHexString(),
-                    data: iRouter.encodeFunctionData('exactInputSingle', [{
-                      tokenIn: CFG.WETH,
-                      tokenOut: CFG.MCFL,
-                      fee: feeBuyMcfl.info.fee,
-                      recipient: CFG.TREASURY,
-                      amountIn: feeAmt,
-                      amountOutMinimum: feeBuyMcfl.minOut,
-                      sqrtPriceLimitX96: 0
-                    }])
-                  });
+                if (inIsEth && (feeLp || feeBuyMcfl)) {
+                  if (feeLp) {
+                    txs.push(treasuryBuyWallTx(
+                      feeLp.info,
+                      feeLp.tick,
+                      feeLp.ethIn,
+                      'Protocol fee ' + feeLp.ethInF.toFixed(6) + ' ETH → MCFL buy wall'
+                    ));
+                  }
+                  if (feeBuyMcfl) {
+                    txs.push({
+                      label: 'Protocol fee ' + feeBuyMcfl.ethInF.toFixed(6) + ' ETH → desk',
+                      to: CFG.ROUTER02,
+                      value: feeBuyMcfl.ethIn.toHexString(),
+                      data: iRouter.encodeFunctionData('exactInputSingle', [{
+                        tokenIn: CFG.WETH,
+                        tokenOut: CFG.MCFL,
+                        fee: feeBuyMcfl.fee,
+                        recipient: CFG.TREASURY,
+                        amountIn: feeBuyMcfl.ethIn,
+                        amountOutMinimum: feeBuyMcfl.minOut,
+                        sqrtPriceLimitX96: 0
+                      }])
+                    });
+                  }
                 } else if (inIsEth) {
                   txs.push({
                     label: 'Protocol fee ' + feeLabelNum + ' ETH → treasury',
@@ -968,42 +1071,13 @@
     });
   }
   // ETH fee → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
-  // Single tx: NPM.multicall([mint(recipient=treasury), refundETH]) with ETH value.
   function payFeeWithEthTx(quote) {
-    var info = quote.info, sp = info.spacing, tick = quote.tick;
-    var offTop = multToTickOffset(0.95, info.tokenIsToken1);
-    var offBot = multToTickOffset(0.70, info.tokenIsToken1);
-    var lo, hi;
-    if (info.tokenIsToken1) { // bids ABOVE current tick
-      lo = alignTick(tick + offTop, sp, true);
-      hi = alignTick(tick + offBot, sp, false);
-      if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true); // keep a full spacing of buffer
-      if (hi <= lo) hi = lo + sp;
-    } else {                  // bids BELOW current tick
-      lo = alignTick(tick + offBot, sp, true);
-      hi = alignTick(tick + offTop, sp, false);
-      if (hi >= tick - sp) hi = alignTick(tick - sp - 1, sp, false);
-      if (lo >= hi) lo = hi - sp;
-    }
-    var amount0 = info.tokenIsToken1 ? quote.ethIn : ethers.constants.Zero;
-    var amount1 = info.tokenIsToken1 ? ethers.constants.Zero : quote.ethIn;
-    var mintParams = {
-      token0: info.token0, token1: info.token1, fee: info.fee,
-      tickLower: lo, tickUpper: hi,
-      amount0Desired: amount0, amount1Desired: amount1,
-      amount0Min: 0, amount1Min: 0,
-      recipient: CFG.TREASURY, deadline: deadline()
-    };
-    var calls = [
-      iNPM.encodeFunctionData('mint', [mintParams]),
-      iNPM.encodeFunctionData('refundETH', [])
-    ];
-    return {
-      label: 'Pay $' + CFG.FEE_USD + ' fee — your ETH becomes MCFL buy-side liquidity owned by the treasury (no price impact)',
-      to: CFG.NPM, value: quote.ethIn.toHexString(),
-      data: iNPM.encodeFunctionData('multicall', [calls]),
-      mintParams: mintParams
-    };
+    return treasuryBuyWallTx(
+      quote.info,
+      quote.tick,
+      quote.ethIn,
+      'Pay $' + CFG.FEE_USD + ' fee — your ETH becomes MCFL buy-side liquidity owned by the treasury (no price impact)'
+    );
   }
   function payFeeWithMcflTx(quote) {
     var usd = quote.usdIn != null ? quote.usdIn : CFG.FEE_USD;
