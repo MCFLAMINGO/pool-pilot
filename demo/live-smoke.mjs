@@ -30,7 +30,23 @@ async function main() {
     fails.push('arrive banner not shown for from=relay');
   });
 
+  // Back to Arrive — confirm links into the rest of .xyz
+  await page.goto(BASE + '/arrive', { waitUntil: 'domcontentloaded' });
+  for (const id of [
+    'link-arrive-home',
+    'link-arrive-swap-nav',
+    'link-arrive-start',
+    'link-arrive-more-swap',
+    'link-arrive-more-home',
+    'link-arrive-more-start'
+  ]) {
+    if (!(await page.getByTestId(id).count())) fails.push('missing ' + id);
+  }
+  await page.getByTestId('link-arrive-more-home').click();
+  await page.waitForURL(/\/$|index\.html/, { timeout: 10000 }).catch(() => fails.push('home link from Arrive failed'));
+
   // Prefill amount via USD chip and wait for quote
+  await page.goto(BASE + '/swap?from=relay&usd=25&out=0x21a91215fbfc4fc002b07cc87698a6fc01aed523', { waitUntil: 'domcontentloaded' });
   const chip = page.locator('#usdPresets [data-usd="25"]');
   if (await chip.count()) await chip.click();
   await page.waitForFunction(() => {
