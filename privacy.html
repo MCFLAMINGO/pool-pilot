@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Privacy Policy — Pool Pilot</title>
+<meta name="description" content="How Pool Pilot handles information. Non-custodial — we never hold your keys or funds.">
+<meta property="og:title" content="Privacy Policy — Pool Pilot">
+<meta property="og:description" content="Non-custodial swap and LP desk. What we collect and what we do not.">
+<meta property="og:url" content="https://poolpilot.xyz/privacy">
+<meta property="og:image" content="https://poolpilot.xyz/og-swap.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://poolpilot.xyz/privacy">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/bd.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="logo" href="/" style="text-decoration:none;color:inherit">
+      <img src="logo.png" alt="Pool Pilot" width="36" height="36">
+      <div><h1>Pool Pilot</h1><span class="sub">Privacy</span></div>
+    </a>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" href="/terms" data-testid="link-privacy-terms">Terms</a>
+    <a class="btn btn-primary" href="/swap" data-testid="link-privacy-swap">Swap</a>
+  </header>
+
+  <section class="card legal" data-testid="card-privacy">
+    <h2>Privacy Policy</h2>
+    <p class="bd-lead">Last updated: August 22, 2026. Pool Pilot is a non-custodial interface. We do not hold your private keys, seed phrases, or crypto.</p>
+
+    <h3>Who we are</h3>
+    <p>Pool Pilot (“we”, “us”) operates <a href="https://poolpilot.xyz/">poolpilot.xyz</a> — a web and Telegram Mini App interface for Uniswap v3 liquidity and ETH · USDG · Token swaps on Robinhood Chain (chain ID 4663). Contact for privacy questions: <a href="mailto:erik@mcflamingo.com">erik@mcflamingo.com</a>.</p>
+
+    <h3>What we do not collect</h3>
+    <ul>
+      <li>We do not ask for government ID, bank details, or seed phrases.</li>
+      <li>We do not custody fiat or crypto. Balances stay in your wallet or with third-party providers you choose (for example MoonPay or Robinhood for fiat on-ramps).</li>
+      <li>We do not sell personal information.</li>
+    </ul>
+
+    <h3>Information that may be processed</h3>
+    <ul>
+      <li><strong>Wallet address.</strong> When you connect a wallet, your public address is used in your browser to read chain state and build transactions you must approve. We do not need your private key.</li>
+      <li><strong>On-device preferences.</strong> The site may store small values in your browser (for example partner <code>?ref=</code>, Start desk progress) so the UI remembers your session. You can clear site data anytime.</li>
+      <li><strong>Operational APIs.</strong> Desk features (listings, seats, Shepherd, Bond, partner stats) may send public wallet addresses, token addresses, and amounts you enter to our API so those features can work. Do not send secrets to the API.</li>
+      <li><strong>Server logs.</strong> Hosting providers (for example Vercel) may log IP addresses, user-agent, and request paths for security and reliability.</li>
+      <li><strong>Public blockchain data.</strong> Transactions you broadcast are public on Robinhood Chain.</li>
+    </ul>
+
+    <h3>Third-party services</h3>
+    <p>If you use features that leave Pool Pilot, those providers have their own policies. Common ones:</p>
+    <ul>
+      <li><strong>MoonPay</strong> — fiat on-ramp (for example Buy USDG). MoonPay runs KYC and payment processing under their privacy policy.</li>
+      <li><strong>Robinhood</strong> — public crypto pages or Connect products if you use them.</li>
+      <li><strong>Relay</strong> — bridging via <code>relay.link</code>.</li>
+      <li><strong>Telegram</strong> — Mini App and channel; Telegram processes data under its terms.</li>
+      <li><strong>RPC / node providers</strong> — read and submit chain data for your wallet session.</li>
+    </ul>
+    <p>When we open a MoonPay widget with your connected wallet prefilled, we may send your wallet address (and, for security, an IP-bound signed URL) to MoonPay so purchased crypto can be delivered to that address. MoonPay’s processing is governed by MoonPay.</p>
+
+    <h3>Cookies and tracking</h3>
+    <p>We do not run advertising pixels or sell behavioral profiles. Essential local storage / cookies may be used for the product itself (wallet connection UX, partner refs). Browser “Do Not Track” does not change public chain visibility of your transactions.</p>
+
+    <h3>Children</h3>
+    <p>Pool Pilot is not directed at children under 18. Do not use the service if you are under the age required in your jurisdiction for crypto products.</p>
+
+    <h3>Your choices</h3>
+    <ul>
+      <li>Disconnect your wallet and clear site data to remove local preferences.</li>
+      <li>Do not use third-party on-ramps if you do not want to share data with those providers.</li>
+      <li>Email <a href="mailto:erik@mcflamingo.com">erik@mcflamingo.com</a> for privacy requests we can reasonably fulfill (for example deleting partner desk records tied to an address you control). On-chain history cannot be erased.</li>
+    </ul>
+
+    <h3>Changes</h3>
+    <p>We may update this page. The “Last updated” date will change when we do. Continued use after an update means you accept the revised policy.</p>
+
+    <h3>Related</h3>
+    <p><a href="/terms">Terms of Service</a> · <a href="/SECURITY.md">Security notes</a> · <a href="/press">Press</a></p>
+  </section>
+</div>
+</body>
+</html>
