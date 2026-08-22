@@ -37,6 +37,7 @@ When someone needs to move or trade on Robinhood Chain:
 | Partner pack | `pack.html` / `js/pack.js` / `js/partnerLib.js` |
 | Partner stats | `partner.html` |
 | Partner seat | `seat.html` / `js/seat.js` — buy-in rounds, where ETH is, capital+work share |
+| MCFL Sol→RH | `mcfl.html` — LayerZero OFT helper (not Relay); `mcfl-oft` `npm run bridge:rh` |
 | Partner API | `server/` (Express) · `api/` (Vercel) — events, stats, seats |
 | Case study | `case.html` |
 | Embed CTA | `embed.html` (frameable) |
