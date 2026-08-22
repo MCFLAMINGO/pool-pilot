@@ -103,7 +103,13 @@
       var ok = parseInt(id, 16) === CFG.CHAIN_ID;
       S.wallet.chainOk = ok;
       $('walletBtn').textContent = ok ? short(addr) : short(addr) + ' · switch';
-      if (!ok) return ensureChain(raw);
+      // Auto-bind seat ref from wallet so attribution works without pasting.
+      return P.bindRefFromWallet(addr).then(function (ref) {
+        if (ref && !$('ref').value) $('ref').value = ref;
+        if (!ok) return ensureChain(raw);
+      });
+    }).then(function () {
+      return loadBoard();
     });
   }
 
@@ -231,8 +237,16 @@
   function renderBoard(board) {
     var rows = board.board || [];
     var stages = board.stages || [];
-    var myRef = P.cleanRef($('ref').value);
+    var myRef = P.cleanRef($('ref').value) || P.getRef();
     var myWallet = (S.wallet.addr || '').toLowerCase();
+    var meta = $('boardMeta');
+    if (meta) {
+      var by = board.seatsByRound || {};
+      meta.textContent =
+        (board.seatsTakenAll != null ? board.seatsTakenAll : rows.length) + ' seats on the field' +
+        ' · R1 ' + (by[1] || 0) + ' · R2 ' + (by[2] || 0) +
+        ' · attributed vol ' + fmtUsd(board.totalAttributedVolumeUsd);
+    }
     if (!rows.length) {
       $('boardList').textContent = 'No seats yet — first $500 buy-in opens the field.';
       return;
@@ -243,19 +257,43 @@
       var path = s.path || {};
       var stageName = (path.stage && path.stage.name) || 'Seated';
       var pctBar = overallProgress(path, stages) * 100;
+      var roundTag = 'R' + (Number(s.round) === 2 ? '2' : '1');
       return (
-        '<div class="seat-lane' + (mine ? ' mine' : '') + '">' +
+        '<div class="seat-lane' + (mine ? ' mine' : '') + '" data-testid="seat-lane-' + esc(s.ref) + '">' +
         '<div class="seat-lane-top">' +
         '<div><strong>' + esc(s.ref) + '</strong> · ' + esc(stageName) +
-        '<div class="mono" style="font-size:0.75rem;color:var(--text-muted)">' + esc(short(s.wallet)) + '</div></div>' +
+        ' <span class="seat-round-tag">' + roundTag + '</span>' +
+        '<div class="mono" style="font-size:0.75rem;color:var(--text-muted)">' +
+        esc(short(s.wallet)) + ' · seat ' + fmtUsd(s.usd) + '</div></div>' +
         '<div style="text-align:right"><div>' + fmtUsd(s.workUsd) + ' vol</div>' +
-        '<div class="mono" style="font-size:0.75rem">' + fmtUsd(path.monthlyEstUsd) + '/mo est.</div></div>' +
+        '<div class="mono" style="font-size:0.75rem">MTD ' + fmtUsd(s.monthUsd) +
+        ' · ' + fmtUsd(path.monthlyEstUsd) + '/mo</div></div>' +
         '</div>' +
         '<div class="seat-lane-bar"><i style="width:' + pctBar.toFixed(1) + '%"></i></div>' +
         '<div class="seat-lane-marks">' + marks + '</div>' +
         '</div>'
       );
     }).join('');
+  }
+
+  function renderAttrLine(board) {
+    var line = $('attrLiveLine');
+    if (!line) return;
+    var ref = P.getRef() || P.cleanRef($('ref').value);
+    if (board && board.mine && board.mine.ref) {
+      line.innerHTML =
+        'Your seat ref <span class="mono"><strong>' + esc(board.mine.ref) +
+        '</strong></span> is bound. Share pack links — every Pool Pilot swap with that ref credits this lane.';
+      return;
+    }
+    if (ref) {
+      line.innerHTML =
+        'Sticky ref <span class="mono"><strong>' + esc(ref) +
+        '</strong></span> — swaps on this browser attribute here until you change it.';
+      return;
+    }
+    line.textContent =
+      'No ref bound yet. Buy a seat or open a ?ref= link — connecting your seat wallet also auto-binds.';
   }
 
   function renderMine(board) {
@@ -340,6 +378,14 @@
     var links = P.buildLinks({ ref: mine.ref, symbol: mine.symbol || 'MCFL', token: mine.token });
     $('minePack').href = links.pack;
     $('minePartner').href = links.partner;
+    if (adviceEl) {
+      adviceEl.innerHTML =
+        (adviceEl.textContent ? adviceEl.textContent + ' ' : '') +
+        'Share: <a href="' + esc(links.arrive) + '" target="_blank" rel="noopener">Arrive</a> · ' +
+        '<a href="' + esc(links.swap) + '" target="_blank" rel="noopener">Swap</a> · ' +
+        '<a href="' + esc(links.mini) + '" target="_blank" rel="noopener">Mini App</a> ' +
+        '<span class="mono">(ref=' + esc(mine.ref) + ')</span>';
+    }
   }
 
   function showPlanProtections(plan) {
@@ -402,7 +448,12 @@
         renderRound(j);
         renderBoard(j);
         renderMine(j);
+        renderAttrLine(j);
         loadPoolDepth();
+        if (j.mine && j.mine.ref) {
+          P.setRef(j.mine.ref);
+          if (!$('ref').value) $('ref').value = j.mine.ref;
+        }
       })
       .catch(function () {
         $('boardList').textContent = 'Could not reach partner API.';

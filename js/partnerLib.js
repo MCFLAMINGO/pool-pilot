@@ -48,6 +48,10 @@
     return s.toLowerCase();
   }
 
+  function cleanWallet(raw) {
+    return cleanToken(raw);
+  }
+
   function cleanUsd(raw) {
     var n = Number(raw);
     if (!isFinite(n) || n <= 0) return '25';
@@ -82,6 +86,33 @@
     } catch (e) {
       return getRef();
     }
+  }
+
+  /**
+   * If this wallet owns a seat, sticky-bind its ref so swaps attribute automatically.
+   * Does not override an explicit ?ref= already captured this session unless force.
+   */
+  function bindRefFromWallet(wallet, opts) {
+    opts = opts || {};
+    var w = cleanWallet(wallet);
+    if (!w) return Promise.resolve('');
+    var urlRef = '';
+    try {
+      urlRef = cleanRef(new URLSearchParams(location.search).get('ref') || '');
+    } catch (e) { /* ignore */ }
+    if (urlRef && !opts.force) return Promise.resolve(urlRef);
+
+    var base = apiBase();
+    return fetch(base + '/api/seats?wallet=' + encodeURIComponent(w), {
+      headers: { Accept: 'application/json' },
+      mode: 'cors'
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.ok || !j.mine || !j.mine.ref) return getRef();
+        return setRef(j.mine.ref);
+      })
+      .catch(function () { return getRef(); });
   }
 
   function withRef(url, ref) {
@@ -272,6 +303,7 @@
     setRef: setRef,
     getRef: getRef,
     captureRefFromUrl: captureRefFromUrl,
+    bindRefFromWallet: bindRefFromWallet,
     withRef: withRef,
     tgStartParam: tgStartParam,
     buildLinks: buildLinks,

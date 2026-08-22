@@ -136,6 +136,36 @@ async function main() {
     check('skim mtd', Math.abs(board.json.mine.path.skimMtdUsd - 90) < 0.01);
     check('est month 290', Math.abs(board.json.mine.path.monthlyEstUsd - 290) < 0.01);
     check('milestone reached ignite', board.json.mine.path.milestones.some((m) => m.id === 'ignite' && m.reached));
+    check('board lists all seats', Array.isArray(board.json.board) && board.json.board.length === 1);
+    check('seatsTakenAll', board.json.seatsTakenAll === 1);
+    check('seatsByRound r1', board.json.seatsByRound && board.json.seatsByRound[1] === 1);
+    check('attribution meta', board.json.attribution && board.json.attribution.autoBindWallet === true);
+
+    const byWallet = await req(
+      port,
+      'GET',
+      '/api/seats?wallet=0x1111111111111111111111111111111111111111'
+    );
+    check('wallet finds mine', byWallet.json.mine && byWallet.json.mine.ref === 'alice');
+
+    const hash2 = '0x' + 'cc'.repeat(32);
+    const bob = await req(port, 'POST', '/api/seats', {
+      ref: 'bob',
+      wallet: '0x2222222222222222222222222222222222222222',
+      usd: 500,
+      eth: 0.15,
+      hash: hash2,
+      symbol: 'MCFL'
+    });
+    check('bob seat 201', bob.status === 201 && bob.json.ok);
+
+    const all = await req(port, 'GET', '/api/seats');
+    check('field has both seats', all.json.board && all.json.board.length === 2);
+    check('seatsTakenAll 2', all.json.seatsTakenAll === 2);
+    check(
+      'alice ahead on volume',
+      all.json.board[0].ref === 'alice' && all.json.board[0].workUsd >= 30000
+    );
   } finally {
     await new Promise((r) => server.close(r));
     restore(SEATS, BAK_S);
