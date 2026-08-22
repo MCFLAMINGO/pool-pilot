@@ -1,5 +1,17 @@
 # Pool Pilot Mini App — give this to RH token communities
 
+## Partner pack (website / X / QR / embed)
+
+Generate everything from:
+
+```
+https://poolpilot.xyz/pack?symbol=MCFL&token=0x21a91215fbfc4fc002b07cc87698a6fc01aed523&ref=yourcommunity&usd=25
+```
+
+Stats / local receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
+Case study template: https://poolpilot.xyz/case?symbol=MCFL&token=0x…  
+Press kit: https://poolpilot.xyz/press
+
 ## How you earn
 Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim is split: most goes into a treasury-owned **MCFL buy-wall LP** (ETH into the book), and the rest quietly buys **MCFL** into the treasury wallet — same Swap button, no separate steps. Other input assets still transfer to treasury as-is.  
 Communities get a free Mini App link; you earn when they trade.

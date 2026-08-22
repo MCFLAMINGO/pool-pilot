@@ -23,6 +23,7 @@
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/bd.css">
 <style>
   .arrive-steps { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
   .arrive-step {
@@ -106,6 +107,7 @@
     <nav class="arrive-nav" aria-label="Pool Pilot">
       <a class="btn btn-ghost" href="/" data-testid="link-arrive-home">Home</a>
       <a class="btn btn-ghost" href="/swap" data-testid="link-arrive-swap-nav">Swap</a>
+      <a class="btn btn-ghost" href="/pack" data-testid="link-arrive-pack">Pack</a>
       <a class="btn btn-ghost" href="/start" data-testid="link-arrive-start">Start</a>
     </nav>
   </header>
@@ -138,6 +140,27 @@
       </div>
     </div>
 
+    <div class="arrive-step" style="margin-top:var(--space-4)" data-testid="arrive-checklist">
+      <div class="n">Quick check</div>
+      <h3>Before you swap</h3>
+      <p>Fixes the usual stuck moments — wrong network, no wallet, no gas.</p>
+      <ul class="bd-check">
+        <li id="chkWallet" class="warn"><span class="mark">?</span><span class="body">Checking wallet…</span></li>
+        <li id="chkNetwork" class="warn"><span class="mark">?</span><span class="body">Checking network…</span></li>
+        <li id="chkGas" class="warn"><span class="mark">?</span><span class="body">Checking ETH…</span></li>
+      </ul>
+      <div class="arrive-actions" style="margin-top:var(--space-3)">
+        <button type="button" class="btn btn-ghost" id="recheckBtn" data-testid="button-arrive-recheck">Re-check</button>
+        <button type="button" class="btn btn-ghost" id="stuckBtn" data-testid="button-arrive-stuck">Stuck?</button>
+      </div>
+      <div id="stuckBox" class="hidden" style="margin-top:var(--space-3);font-size:var(--text-sm);color:var(--text-muted);line-height:1.45" data-testid="arrive-stuck-help">
+        <p><strong>Desktop Telegram Mini App flaky?</strong> Use phone Telegram, or open the web swap link.</p>
+        <p><strong>Relay “gas not enough”?</strong> You need ETH on <em>Ethereum</em> to bridge — RH balances don’t pay L1 gas.</p>
+        <p><strong>Wrong network after bridge?</strong> In Rabby, switch to Robinhood Chain (4663), then hit swap.</p>
+        <p><strong>Communities / BD?</strong> Generate a partner pack → <a href="/pack">/pack</a>.</p>
+      </div>
+    </div>
+
     <div class="arrive-more" data-testid="arrive-more">
       <h3>Then look around poolpilot.xyz</h3>
       <p>Arrive gets you on-chain. The rest of the site is the full desk — swap, check your pool, launch a token.</p>
@@ -150,6 +173,10 @@
           <strong>Liquidity copilot</strong>
           <span>See if your pool is healthy and what to do next — deepen, straddle, collect fees.</span>
         </a>
+        <a class="more-row" href="/pack" data-testid="link-arrive-more-pack">
+          <strong>Partner pack</strong>
+          <span>Links, QR, Telegram, and embed for your community site / TG / X.</span>
+        </a>
         <a class="more-row" href="/start" data-testid="link-arrive-more-start">
           <strong>Start your token</strong>
           <span>Stage a serious launch on Robinhood Chain — rails, checklist, no lottery vibes.</span>
@@ -159,7 +186,7 @@
           <span>Bridge paths and orphan Solana cash-out — same playbook as Arrive.</span>
         </a>
       </div>
-      <p class="arrive-brand">Always: <a href="https://poolpilot.xyz/">poolpilot.xyz</a></p>
+      <p class="arrive-brand">Always: <a href="https://poolpilot.xyz/">poolpilot.xyz</a> · <a href="/press">Press kit</a></p>
     </div>
 
     <p class="arrive-note">
@@ -169,6 +196,7 @@
   </section>
 </div>
 
+<script src="js/partnerLib.js"></script>
 <script src="js/arrive.js"></script>
 </body>
 </html>

@@ -502,6 +502,21 @@
 
     chain.then(function () {
       S.busy = false;
+      try {
+        var PP = window.PoolPilotPartner;
+        if (PP) {
+          var approx = estimateOutUsd(S.plan);
+          PP.logEvent({
+            kind: 'swap',
+            ref: PP.getRef(),
+            token: tokenAddr(),
+            symbol: (S.plan && S.plan.symbolOut) || '',
+            usd: approx != null ? approx : (S.amountMode === 'usd' ? Number($('amountIn').value) : null),
+            hash: hashes[hashes.length - 1] || '',
+            note: (S.plan && S.plan.pathLabel) || ''
+          });
+        }
+      } catch (e) { /* ignore */ }
       $('execFoot').innerHTML =
         '<div class="banner ok">Done.</div>' +
         '<button class="btn btn-primary btn-lg" id="doneBtn" style="margin-top:12px;width:100%">Close</button>';
@@ -604,6 +619,7 @@
 
   /* boot from query */
   renderTokenChips();
+  if (window.PoolPilotPartner) window.PoolPilotPartner.captureRefFromUrl();
   var q = new URLSearchParams(location.search);
   var out = q.get('out') || q.get('token') || q.get('buy');
   var inn = (q.get('in') || '').toLowerCase();

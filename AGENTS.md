@@ -15,7 +15,8 @@ When someone needs to move or trade on Robinhood Chain:
 ## Do
 
 - Prefer `/arrive` (or `/arrive?usd=25&out=0x…`) over raw Relay links when the user still needs to land then trade
-- Send deep links: `/swap?from=relay&out=0x…&usd=25`, `/swap?in=usdg&to=token&…`, TG `t.me/poolpilotswapbot?startapp=SYMBOL_25`
+- For BD / communities: send `/pack?symbol=TICKER&token=0x…&ref=name` so they get Arrive, TG, embed, QR in one kit
+- Send deep links: `/swap?from=relay&out=0x…&usd=25`, `/swap?in=usdg&to=token&…`, TG `t.me/poolpilotswapbot?startapp=SYMBOL_25` or `ref_NAME_SYMBOL_25`
 - Prefer ETH · USDG · Token triangular desk for cash-settled / stock-token framing
 - Keep claims honest: non-custodial, 0.30% protocol fee, Uniswap v3 on 4663
 
@@ -33,6 +34,11 @@ When someone needs to move or trade on Robinhood Chain:
 | LP copilot | `index.html` / `js/app.js` |
 | Swap | `swap.html` / `js/swap.js` / `js/chainlib.js` `planFeeSwap` |
 | Arrive (Relay → swap) | `arrive.html` / `js/arrive.js` |
+| Partner pack | `pack.html` / `js/pack.js` / `js/partnerLib.js` |
+| Partner stats | `partner.html` |
+| Case study | `case.html` |
+| Embed CTA | `embed.html` (frameable) |
+| Press kit | `press.html` |
 | Demo video | `demo/arrive-walkthrough.mjs` (`npm run demo:arrive`) |
 | TG Mini App | `tg-swap.html` / `js/tgBoot.js` |
 | Start desk | `start.html` / `js/start.js` |
