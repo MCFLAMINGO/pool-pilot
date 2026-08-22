@@ -754,89 +754,20 @@
   });
   $('swapBtn').addEventListener('click', executeSwap);
 
-  /* ---- Fund desk (path, not custody): Relay ETH → back here → ETH→USDG ---- */
-  var FUND_KEY = 'pp_fund_open';
-  var RELAY_RH = 'https://relay.link/bridge/robinhood';
-  S.fundUsd = 25;
-
-  function setFundOpen(open) {
-    var desk = $('fundDesk');
-    var tog = $('fundToggle');
-    if (!desk || !tog) return;
-    desk.classList.toggle('is-collapsed', !open);
-    tog.setAttribute('aria-expanded', open ? 'true' : 'false');
-    try { sessionStorage.setItem(FUND_KEY, open ? '1' : '0'); } catch (e) { /* ignore */ }
-  }
-
-  function updateFundRelayHref() {
-    var a = $('fundRelayBtn');
-    if (!a) return;
-    var u = new URL(RELAY_RH);
-    u.searchParams.set('fromChainId', '1');
-    if (S.ethUsd && S.fundUsd > 0) {
-      var eth = S.fundUsd / S.ethUsd;
-      if (isFinite(eth) && eth > 0) u.searchParams.set('amount', eth.toFixed(6));
+  /* Buy USDG — USD → USDG via Robinhood or MoonPay (no custody) */
+  (function wireBuyUsdg() {
+    var moon = $('buyUsdgMoon');
+    if (!moon) return;
+    var pk = '';
+    try { pk = String(window.MOONPAY_PK || localStorage.getItem('pp_moonpay_pk') || '').trim(); } catch (e) { pk = ''; }
+    var u = new URL('https://buy.moonpay.com/');
+    u.searchParams.set('currencyCode', 'usdg_robinhood');
+    u.searchParams.set('baseCurrencyCode', 'usd');
+    if (pk) u.searchParams.set('apiKey', pk);
+    if (S.wallet && S.wallet.addr && !pk) {
+      /* walletAddress requires signed URL + apiKey — skip until keys exist */
     }
-    a.href = u.toString();
-  }
-
-  function applyBuyUsdg() {
-    $('tokenInSel').value = 'ETH';
-    $('tokenOutSel').value = 'USDG';
-    ensureDistinct('out');
-    S.amountMode = 'usd';
-    updateUnitBtn();
-    $('amountIn').value = String(S.fundUsd);
-    syncTokenPick();
-    scheduleQuote();
-    var ab = $('arriveBanner');
-    if (ab) {
-      ab.classList.remove('hidden');
-      ab.innerHTML = 'Buying <strong>USDG</strong> with ETH on this desk (~$' + S.fundUsd +
-        '). If you still need ETH on Robinhood, use <strong>Bridge ETH to RH</strong> above, keep this tab, then swap.';
-    }
-    try { $('amountIn').focus(); } catch (e) { /* ignore */ }
-  }
-
-  (function initFundDesk() {
-    var desk = $('fundDesk');
-    if (!desk) return;
-    var open = true;
-    try {
-      var saved = sessionStorage.getItem(FUND_KEY);
-      if (saved === '0') open = false;
-    } catch (e) { /* ignore */ }
-    setFundOpen(open);
-    updateFundRelayHref();
-
-    $('fundToggle').addEventListener('click', function () {
-      setFundOpen(desk.classList.contains('is-collapsed'));
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('#fundPresets [data-fund-usd]'), function (b) {
-      b.addEventListener('click', function () {
-        S.fundUsd = Number(b.getAttribute('data-fund-usd')) || 25;
-        Array.prototype.forEach.call(document.querySelectorAll('#fundPresets .chip'), function (c) {
-          c.classList.toggle('is-active', c === b);
-        });
-        updateFundRelayHref();
-      });
-    });
-    if ($('fundUsdgBtn')) {
-      $('fundUsdgBtn').addEventListener('click', function () {
-        setFundOpen(true);
-        applyBuyUsdg();
-      });
-    }
-    if ($('fundRelayBtn')) {
-      $('fundRelayBtn').addEventListener('click', function () {
-        var ab = $('arriveBanner');
-        if (ab) {
-          ab.classList.remove('hidden');
-          ab.innerHTML = 'Relay opened in a new tab. Keep <strong>this</strong> tab open. When ETH lands on Robinhood (4663), tap <strong>Buy USDG here</strong> — no need to leave the swap desk.';
-        }
-        setFundOpen(true);
-      });
-    }
+    moon.href = u.toString();
   })();
 
   /* boot from query */
