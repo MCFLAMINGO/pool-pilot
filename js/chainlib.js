@@ -75,6 +75,7 @@
     'function tokenOfOwnerByIndex(address,uint256) view returns (uint256)',
     'function positions(uint256) view returns (uint96 nonce,address operator,address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint128 liquidity,uint256 feeGrowthInside0LastX128,uint256 feeGrowthInside1LastX128,uint128 tokensOwed0,uint128 tokensOwed1)',
     'function mint((address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,address recipient,uint256 deadline)) payable returns (uint256 tokenId,uint128 liquidity,uint256 amount0,uint256 amount1)',
+    'function decreaseLiquidity((uint256 tokenId,uint128 liquidity,uint256 amount0Min,uint256 amount1Min,uint256 deadline)) payable returns (uint256 amount0,uint256 amount1)',
     'function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256 amount0,uint256 amount1)',
     'function multicall(bytes[] data) payable returns (bytes[] results)',
     'function refundETH() payable'
@@ -478,6 +479,60 @@
       summary: { count: positions.length },
       txs: [{
         label: 'Collect fees from ' + positions.length + ' position' + (positions.length === 1 ? '' : 's') + ' (one transaction)',
+        to: CFG.NPM,
+        value: '0x0',
+        data: iNPM.encodeFunctionData('multicall', [calls])
+      }]
+    };
+  }
+
+  /**
+   * Exit LP — decreaseLiquidity (full) + collect for each NFT you own in this pool.
+   * Tokens (ETH as WETH + token) return to your wallet. You still own the empty NFT.
+   * opts.tokenIds: optional string[] to exit only those positions.
+   */
+  function planExitPositions(state, walletAddr, opts) {
+    opts = opts || {};
+    var all = (state.positions && state.positions.list) || [];
+    var want = opts.tokenIds
+      ? all.filter(function (p) {
+          return opts.tokenIds.map(String).indexOf(String(p.id)) >= 0;
+        })
+      : all.slice();
+    var positions = want.filter(function (p) {
+      try { return ethers.BigNumber.from(p.liquidity || '0').gt(0); }
+      catch (e) { return false; }
+    });
+    if (!positions.length) {
+      return { kind: 'exit', summary: { count: 0, tokenIds: [] }, txs: [] };
+    }
+
+    var dl = deadline();
+    var calls = [];
+    positions.forEach(function (p) {
+      var liq = ethers.BigNumber.from(p.liquidity);
+      calls.push(iNPM.encodeFunctionData('decreaseLiquidity', [{
+        tokenId: p.id,
+        liquidity: liq,
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: dl
+      }]));
+      calls.push(iNPM.encodeFunctionData('collect', [{
+        tokenId: p.id,
+        recipient: walletAddr,
+        amount0Max: MAX_UINT128,
+        amount1Max: MAX_UINT128
+      }]));
+    });
+
+    var ids = positions.map(function (p) { return String(p.id); });
+    return {
+      kind: 'exit',
+      summary: { count: positions.length, tokenIds: ids },
+      txs: [{
+        label: 'Withdraw LP from ' + positions.length + ' position' + (positions.length === 1 ? '' : 's') +
+          ' (#' + ids.join(', #') + ') — tokens back to your wallet',
         to: CFG.NPM,
         value: '0x0',
         data: iNPM.encodeFunctionData('multicall', [calls])
@@ -1467,6 +1522,7 @@
     planBuySide: planBuySide,
     planStraddle: planStraddle,
     planCollect: planCollect,
+    planExitPositions: planExitPositions,
     refreshMintTx: refreshMintTx,
     quoteFee: quoteFee,
     quoteFeeUsd: quoteFeeUsd,
