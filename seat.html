@@ -6,9 +6,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Partner seat — Pool Pilot</title>
-<meta name="description" content="Buy a Pool Pilot partner seat: put ETH into your own buy wall, get a ref, and see capital + work share as volume grows.">
+<meta name="description" content="Buy a $500 founding seat, drive attributed volume, hit milestones, get paid monthly. See the full path.">
 <meta property="og:title" content="Partner seat — Pool Pilot">
-<meta property="og:description" content="Round 1 seats $100–$500. Your wallet owns the LP. Track where your ETH sits and your share.">
+<meta property="og:description" content="$500 seat · own your buy wall · clear volume milestones · monthly pay.">
 <meta property="og:url" content="https://poolpilot.xyz/seat">
 <meta property="og:image" content="https://poolpilot.xyz/og-swap.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -37,68 +37,78 @@
   </header>
 
   <section class="card seat-hero" data-testid="card-seat">
-    <p class="bd-kicker" id="roundKicker">Round 1</p>
-    <h2>Buy a seat. Own the wall.</h2>
-    <p class="bd-lead">Put ETH into a <strong>buy wall you own</strong> on Robinhood Chain. Get a live partner <span class="mono">ref</span>. As desk volume grows, your share is plain: capital you put in + volume your links drive.</p>
+    <p class="bd-kicker" id="roundKicker">Round 1 · 12 seats</p>
+    <h2>Buy the seat. Drive volume. Get paid.</h2>
+    <p class="bd-lead">One clear path: park <strong>$500</strong> of ETH in a buy wall <em>you</em> own, share your <span class="mono">ref</span> links, hit volume milestones, collect a monthly check. Everyone advances on their own volume — you can see the field.</p>
+
+    <ol class="seat-steps" data-testid="seat-steps">
+      <li><span class="n">1</span><div><strong>Buy seat — $500</strong><span>ETH into your Uniswap buy wall (still yours)</span></div></li>
+      <li><span class="n">2</span><div><strong>Drive volume</strong><span>Arrive / swap / Mini App with your ref</span></div></li>
+      <li><span class="n">3</span><div><strong>Hit milestones</strong><span>Ignite → Breakout → Pro → Killing it</span></div></li>
+      <li><span class="n">4</span><div><strong>Get paid monthly</strong><span>Stage bonus + 100% of your 0.30% skim</span></div></li>
+    </ol>
 
     <div class="seat-tier" id="tierBox" data-testid="seat-tier">
       <div class="seat-tier-main">
-        <div class="seat-tier-price" id="tierPrice">$100 – $500</div>
-        <div class="seat-tier-name" id="tierName">Round 1 — early seats</div>
+        <div class="seat-tier-price" id="tierPrice">$500</div>
+        <div class="seat-tier-name" id="tierName">Round 1 — founding seats</div>
       </div>
       <div class="seat-tier-meta">
         <div><span class="mono" id="seatsLeft">—</span> seats left</div>
-        <div>Raised <span class="mono" id="raisedUsd">—</span></div>
+        <div>Filled <span class="mono" id="seatsTaken">—</span> / <span class="mono" id="seatsMax">12</span></div>
       </div>
     </div>
     <div class="seat-progress" aria-hidden="true"><div class="seat-progress-bar" id="progressBar"></div></div>
-    <p class="bd-lead seat-next" id="nextRoundLine">Later round: $1,000 – $5,000 when early seats fill or attributed volume clears the bar.</p>
+    <p class="bd-lead seat-next" id="nextRoundLine"></p>
+  </section>
+
+  <section class="card" data-testid="card-seat-path">
+    <h3>Goals &amp; milestones</h3>
+    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks the next stage. Monthly check = <strong>stage bonus</strong> + <strong>all</strong> of Pool Pilot’s 0.30% on your volume that month.</p>
+    <div class="seat-path" id="pathLegend" data-testid="seat-path-legend">
+      <!-- filled by js -->
+    </div>
+    <p class="bd-lead" id="incentiveNote" style="margin-top:var(--space-3)"></p>
   </section>
 
   <section class="card" data-testid="card-seat-buy">
     <h3>Claim your seat</h3>
-    <p class="bd-lead">One signature. ETH becomes your Uniswap v3 buy-side position (default MCFL pool). Nothing custodied by Pool Pilot.</p>
+    <p class="bd-lead">Fixed <strong>$500</strong> ticket this round. One signature. Nothing custodied.</p>
     <div class="bd-form">
       <label>Partner ref <input id="ref" placeholder="yourname" data-testid="input-seat-ref"></label>
-      <label>Buy-in USD <input id="usd" type="number" inputmode="decimal" value="250" data-testid="input-seat-usd"></label>
+      <label>Seat price (USD) <input id="usd" type="number" inputmode="decimal" value="500" readonly data-testid="input-seat-usd"></label>
       <label>Token (optional) <input id="token" placeholder="MCFL pool default" spellcheck="false" data-testid="input-seat-token"></label>
     </div>
     <p class="bd-lead mono" id="ethPreview" data-testid="text-seat-eth-preview">ETH ≈ …</p>
     <div id="errBanner" class="banner err hidden" data-testid="seat-error"></div>
     <div class="bd-actions">
-      <button type="button" class="btn btn-primary" id="buyBtn" data-testid="button-seat-buy">Connect &amp; buy seat</button>
-      <button type="button" class="btn btn-ghost" id="refreshBtn" data-testid="button-seat-refresh">Refresh board</button>
+      <button type="button" class="btn btn-primary" id="buyBtn" data-testid="button-seat-buy">Connect &amp; buy $500 seat</button>
+      <button type="button" class="btn btn-ghost" id="refreshBtn" data-testid="button-seat-refresh">Refresh</button>
     </div>
     <div id="execBox" class="seat-exec hidden" data-testid="seat-exec"></div>
   </section>
 
   <section class="card" id="mineCard" data-testid="card-seat-mine">
-    <h3>Where your ETH is</h3>
-    <p class="bd-lead" id="mineEmpty">Connect or enter your ref to see your seat, pool, and tx.</p>
+    <h3>Your path</h3>
+    <p class="bd-lead" id="mineEmpty">Buy a seat (or enter your ref) to see your milestones, volume, and monthly estimate.</p>
     <div id="mineBody" class="hidden">
+      <div class="seat-pay" data-testid="seat-pay">
+        <div class="bd-stat"><div class="n" id="payMonth">—</div><div class="l">Est. this month</div></div>
+        <div class="bd-stat"><div class="n" id="payBonus">—</div><div class="l">Stage bonus</div></div>
+        <div class="bd-stat"><div class="n" id="paySkim">—</div><div class="l">Your skim (MTD)</div></div>
+      </div>
+      <p class="bd-kicker" id="mineStageLabel" style="margin-top:var(--space-4)">Stage</p>
+      <div class="seat-milestone-track" id="mineMilestones" data-testid="mine-milestones"></div>
+      <p class="bd-lead" id="mineNextLine"></p>
+
+      <h3 style="margin-top:var(--space-4)">Where your ETH is</h3>
       <div class="seat-where">
-        <div class="seat-where-row"><span class="k">Your wallet</span><span class="v mono" id="mineWallet">—</span></div>
+        <div class="seat-where-row"><span class="k">Wallet</span><span class="v mono" id="mineWallet">—</span></div>
         <div class="seat-where-row"><span class="k">Buy-in</span><span class="v" id="mineBuyin">—</span></div>
         <div class="seat-where-row"><span class="k">Pool</span><span class="v mono" id="minePool">—</span></div>
         <div class="seat-where-row"><span class="k">Mint tx</span><span class="v" id="mineTx">—</span></div>
-        <div class="seat-where-row"><span class="k">Ownership</span><span class="v" id="mineOwn">Your wallet owns the Uniswap v3 NFT — not Pool Pilot.</span></div>
+        <div class="seat-where-row"><span class="k">Ownership</span><span class="v">Your wallet owns the Uniswap v3 NFT — not Pool Pilot.</span></div>
       </div>
-      <h3 style="margin-top:var(--space-4)">Your share</h3>
-      <p class="bd-lead">Seat weight = <span class="mono">60%</span> capital + <span class="mono">40%</span> attributed swap volume (work).</p>
-      <div class="seat-share-grid">
-        <div class="bd-stat"><div class="n" id="shareCapital">—</div><div class="l">Capital share</div></div>
-        <div class="bd-stat"><div class="n" id="shareWork">—</div><div class="l">Work share</div></div>
-        <div class="bd-stat"><div class="n" id="shareSeat">—</div><div class="l">Seat weight</div></div>
-      </div>
-      <div class="seat-bars">
-        <div class="seat-bar-label">Capital</div>
-        <div class="seat-bar"><div id="barCapital"></div></div>
-        <div class="seat-bar-label">Work (volume)</div>
-        <div class="seat-bar"><div id="barWork"></div></div>
-        <div class="seat-bar-label">Seat weight</div>
-        <div class="seat-bar seat-bar-accent"><div id="barSeat"></div></div>
-      </div>
-      <p class="bd-lead" id="mineWorkLine"></p>
       <div class="bd-actions">
         <a class="btn btn-primary" id="minePack" href="/pack">Open partner pack</a>
         <a class="btn btn-ghost" id="minePartner" href="/partner">Attributed stats</a>
@@ -107,8 +117,8 @@
   </section>
 
   <section class="card" data-testid="card-seat-board">
-    <h3>Seat board</h3>
-    <p class="bd-lead">Live capital vs work for the active round. Easy to see who put ETH in and who’s driving flow.</p>
+    <h3>Live field</h3>
+    <p class="bd-lead">Every seat’s volume and stage — same milestones, side by side.</p>
     <div id="boardList" class="seat-board" data-testid="seat-board">Loading…</div>
   </section>
 </div>

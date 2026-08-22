@@ -9,8 +9,9 @@ https://poolpilot.xyz/pack?symbol=MCFL&token=0x21a91215fbfc4fc002b07cc87698a6fc0
 ```
 
 Stats / attributed receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
-Seat (buy-in + share board): https://poolpilot.xyz/seat?ref=yourcommunity&usd=250  
-(API: `GET /api/stats/yourcommunity` · `GET /api/seats` · swaps with `?ref=` POST to `/api/events`)  
+Seat (path + milestones): https://poolpilot.xyz/seat?ref=yourcommunity  
+**Path:** buy $500 seat → drive attributed volume → hit Ignite / Breakout / Pro / Killing it → monthly pay (stage bonus + your 0.30% skim).  
+(API: `GET /api/seats` · `pathLegend` + per-seat `path.milestones`)  
 Case study template: https://poolpilot.xyz/case?symbol=MCFL&token=0x…  
 Press kit: https://poolpilot.xyz/press
 

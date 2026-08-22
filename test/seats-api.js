@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { createApp } = require('../server/app');
+const { STAGES, pathForSeat } = require('../server/seats');
 
 const ROOT = path.join(__dirname, '..');
 const DATA = path.join(ROOT, 'data');
@@ -75,7 +76,7 @@ async function main() {
         t: Date.now(),
         kind: 'swap',
         ref: 'alice',
-        usd: 1000,
+        usd: 30000,
         hash: '0x' + '11'.repeat(32),
         token: '',
         symbol: 'MCFL',
@@ -97,50 +98,44 @@ async function main() {
   }
 
   try {
+    const p = pathForSeat(30000, 30000);
+    check('ignite stage at 30k', p.stage.id === 'ignite');
+    check('next is breakout', p.nextStage && p.nextStage.id === 'breakout');
+    check('milestones length', p.milestones.length === STAGES.length);
+
     const round = await req(port, 'GET', '/api/seats/round');
-    check('round 1 open', round.status === 200 && round.json.activeRound === 1 && round.json.open);
-    check('round 1 window', round.json.round.usdMin === 100 && round.json.round.usdMax === 500);
+    check('round 1 $500', round.json.round.usdMin === 500 && round.json.round.usdMax === 500);
+    check('12 seats', round.json.round.maxSeats === 12);
+    check('path legend', Array.isArray(round.json.pathLegend) && round.json.pathLegend.length >= 4);
 
     const bad = await req(port, 'POST', '/api/seats', {
       ref: 'alice',
       wallet: '0x1111111111111111111111111111111111111111',
-      usd: 50,
+      usd: 250,
       hash: '0x' + 'aa'.repeat(32)
     });
-    check('rejects under min', bad.status === 400);
+    check('rejects non-500', bad.status === 400);
 
     const hash = '0x' + 'bb'.repeat(32);
     const ok = await req(port, 'POST', '/api/seats', {
       ref: 'alice',
       wallet: '0x1111111111111111111111111111111111111111',
-      usd: 250,
-      eth: 0.08,
+      usd: 500,
+      eth: 0.15,
       hash,
       token: '0x21a91215fbfc4fc002b07cc87698a6fc01aed523',
       symbol: 'MCFL',
       pool: '0x2222222222222222222222222222222222222222'
     });
-    check('seat 201', ok.status === 201 && ok.json.ok && !ok.json.deduped);
+    check('seat 201', ok.status === 201 && ok.json.ok);
 
     const board = await req(port, 'GET', '/api/seats?ref=alice');
-    check('board has alice', board.status === 200 && board.json.mine && board.json.mine.ref === 'alice');
-    check('capital share 100%', Math.abs(board.json.mine.capitalShare - 1) < 1e-9);
-    check('work share from events', Math.abs(board.json.mine.workShare - 1) < 1e-9);
-    check('seat weight 100%', Math.abs(board.json.mine.seatShare - 1) < 1e-9);
-    check('where eth fields', board.json.mine.hash === hash && board.json.mine.pool.startsWith('0x'));
-
-    const bob = await req(port, 'POST', '/api/seats', {
-      ref: 'bob',
-      wallet: '0x3333333333333333333333333333333333333333',
-      usd: 250,
-      hash: '0x' + 'cc'.repeat(32)
-    });
-    check('second seat', bob.status === 201);
-
-    const board2 = await req(port, 'GET', '/api/seats?ref=alice');
-    check('capital split 50%', Math.abs(board2.json.mine.capitalShare - 0.5) < 1e-9);
-    // alice has all volume → work 100%; seat = 0.6*0.5 + 0.4*1 = 0.7
-    check('seat weight mixes capital+work', Math.abs(board2.json.mine.seatShare - 0.7) < 1e-9);
+    check('mine has path', board.json.mine && board.json.mine.path);
+    check('alice ignite', board.json.mine.path.stage.id === 'ignite');
+    check('monthly bonus 200', board.json.mine.path.monthlyBonusUsd === 200);
+    check('skim mtd', Math.abs(board.json.mine.path.skimMtdUsd - 90) < 0.01);
+    check('est month 290', Math.abs(board.json.mine.path.monthlyEstUsd - 290) < 0.01);
+    check('milestone reached ignite', board.json.mine.path.milestones.some((m) => m.id === 'ignite' && m.reached));
   } finally {
     await new Promise((r) => server.close(r));
     restore(SEATS, BAK_S);

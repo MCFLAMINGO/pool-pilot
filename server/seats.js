@@ -13,26 +13,79 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const FILE_PATH = path.join(DATA_DIR, 'partner-seats.json');
 const MAX_SEATS_FILE = 500;
 
-/** Round 1 = smaller guys; advances when raised or attributed volume clears thresholds. */
+/** Round 1 = 12 seats at $500 (clear ticket). Round 2 opens after fill / raise / volume. */
 const ROUNDS = {
   1: {
     id: 1,
-    name: 'Round 1 — early seats',
-    usdMin: 100,
+    name: 'Round 1 — founding seats',
+    usdMin: 500,
     usdMax: 500,
-    maxSeats: 15,
-    advanceRaisedUsd: 7500,
-    advanceVolumeUsd: 50000
+    seatPriceUsd: 500,
+    maxSeats: 12,
+    advanceRaisedUsd: 6000,
+    advanceVolumeUsd: 100000
   },
   2: {
     id: 2,
     name: 'Round 2 — growth seats',
     usdMin: 1000,
     usdMax: 5000,
-    maxSeats: 30,
+    seatPriceUsd: 2500,
+    maxSeats: 24,
     advanceRaisedUsd: Infinity,
     advanceVolumeUsd: Infinity
   }
+};
+
+/**
+ * Volume stages → monthly partner pay (professional ladder, carnival-clear).
+ * monthlyBonusUsd = stipend while you hold this stage (lifetime attributed volume).
+ * Plus 100% of attributed desk skim (0.30%) on month-to-date volume.
+ */
+const SKIM_BPS = 30;
+const STAGES = [
+  {
+    id: 'seated',
+    name: 'Seated',
+    volumeUsd: 0,
+    monthlyBonusUsd: 0,
+    blurb: 'ETH parked in your buy wall. Drive volume with your ref.'
+  },
+  {
+    id: 'ignite',
+    name: 'Ignite',
+    volumeUsd: 25000,
+    monthlyBonusUsd: 200,
+    blurb: 'First real traction — bonus unlocks on the monthly check.'
+  },
+  {
+    id: 'breakout',
+    name: 'Breakout',
+    volumeUsd: 100000,
+    monthlyBonusUsd: 700,
+    blurb: 'Clear early goal. Monthly check steps up.'
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    volumeUsd: 500000,
+    monthlyBonusUsd: 2500,
+    blurb: 'Habit volume. This is a real partner month.'
+  },
+  {
+    id: 'killing',
+    name: 'Killing it',
+    volumeUsd: 2000000,
+    monthlyBonusUsd: 8000,
+    blurb: 'Top of the ladder — keep the links live.'
+  }
+];
+
+/** Treasury partner-incentive pool (funds stage bonuses). Not taken from seat ETH. */
+const INCENTIVE_POOL = {
+  round1BudgetUsd: 20000,
+  note:
+    'Stage bonuses are paid from Pool Pilot’s partner incentive pool (treasury), separate from your seat ETH — that ETH stays in your Uniswap position.'
 };
 
 const CAPITAL_WEIGHT = 0.6;
@@ -147,32 +200,102 @@ function aggregateVolumeByRef(eventRows) {
   return map;
 }
 
-async function volumeMap() {
+function monthStartMs(now) {
+  const d = new Date(now || Date.now());
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+}
+
+function aggregateVolumeByRefSince(eventRows, sinceMs) {
+  const map = Object.create(null);
+  (eventRows || []).forEach((e) => {
+    if (!e || e.kind !== 'swap') return;
+    if (sinceMs && Number(e.t) < sinceMs) return;
+    const ref = eventsStore.cleanRef(e.ref);
+    if (!ref) return;
+    const usd = e.usd != null && isFinite(e.usd) ? Number(e.usd) : 0;
+    map[ref] = (map[ref] || 0) + usd;
+  });
+  return map;
+}
+
+async function readAllEvents() {
   if (usePostgres()) {
     try {
       const pool = await getPg();
-      // Ensure events table exists (same migrate as partner store).
       await eventsStore.health();
       const r = await pool.query(
-        `SELECT ref, COALESCE(SUM(usd) FILTER (WHERE kind = 'swap'), 0)::float AS usd
-         FROM partner_events WHERE ref <> '' GROUP BY ref`
+        `SELECT EXTRACT(EPOCH FROM t)*1000 AS t, kind, ref, usd FROM partner_events`
       );
-      const map = Object.create(null);
-      r.rows.forEach((row) => {
-        map[row.ref] = Number(row.usd) || 0;
-      });
-      return map;
+      return r.rows.map((e) => ({
+        t: Number(e.t),
+        kind: e.kind,
+        ref: e.ref,
+        usd: e.usd != null ? Number(e.usd) : 0
+      }));
     } catch {
-      /* partner_events may not exist yet */
+      return [];
     }
   }
   try {
-    if (!fs.existsSync(path.join(DATA_DIR, 'partner-events.json'))) return Object.create(null);
-    const arr = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'partner-events.json'), 'utf8'));
-    return aggregateVolumeByRef(Array.isArray(arr) ? arr : []);
+    const file = path.join(DATA_DIR, 'partner-events.json');
+    if (!fs.existsSync(file)) return [];
+    const arr = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Array.isArray(arr) ? arr : [];
   } catch {
-    return Object.create(null);
+    return [];
   }
+}
+
+async function volumeMaps() {
+  const events = await readAllEvents();
+  return {
+    all: aggregateVolumeByRef(events),
+    month: aggregateVolumeByRefSince(events, monthStartMs())
+  };
+}
+
+function stageForVolume(workUsd) {
+  let cur = STAGES[0];
+  for (let i = 0; i < STAGES.length; i++) {
+    if (workUsd >= STAGES[i].volumeUsd) cur = STAGES[i];
+  }
+  const idx = STAGES.findIndex((s) => s.id === cur.id);
+  const next = STAGES[idx + 1] || null;
+  const prevVol = cur.volumeUsd;
+  const nextVol = next ? next.volumeUsd : cur.volumeUsd;
+  const span = Math.max(1, nextVol - prevVol);
+  const progressToNext = next ? Math.min(1, Math.max(0, (workUsd - prevVol) / span)) : 1;
+  return { stage: cur, next, progressToNext, stageIndex: idx };
+}
+
+function pathForSeat(workUsd, monthUsd) {
+  const { stage, next, progressToNext, stageIndex } = stageForVolume(workUsd || 0);
+  const skimMtd = ((monthUsd || 0) * SKIM_BPS) / 10000;
+  const monthlyBonusUsd = stage.monthlyBonusUsd || 0;
+  const monthlyEstUsd = monthlyBonusUsd + skimMtd;
+  const milestones = STAGES.map((s, i) => ({
+    id: s.id,
+    name: s.name,
+    volumeUsd: s.volumeUsd,
+    monthlyBonusUsd: s.monthlyBonusUsd,
+    blurb: s.blurb,
+    reached: (workUsd || 0) >= s.volumeUsd,
+    current: s.id === stage.id,
+    next: next && s.id === next.id
+  }));
+  return {
+    stage,
+    nextStage: next,
+    stageIndex,
+    progressToNext,
+    workUsd: workUsd || 0,
+    monthUsd: monthUsd || 0,
+    skimBps: SKIM_BPS,
+    skimMtdUsd: skimMtd,
+    monthlyBonusUsd,
+    monthlyEstUsd,
+    milestones
+  };
 }
 
 function computeRoundState(seats, volMap) {
@@ -217,7 +340,7 @@ function computeRoundState(seats, volMap) {
   };
 }
 
-function withShares(seats, volMap, roundId) {
+function withShares(seats, volMap, monthMap, roundId) {
   const inRound = seats.filter((s) => Number(s.round) === Number(roundId));
   const capitalTotal = inRound.reduce((a, s) => a + (Number(s.usd) || 0), 0) || 0;
   let workTotal = 0;
@@ -225,42 +348,66 @@ function withShares(seats, volMap, roundId) {
     workTotal += volMap[s.ref] || 0;
   });
 
-  return inRound.map((s) => {
-    const capitalShare = capitalTotal > 0 ? (Number(s.usd) || 0) / capitalTotal : 0;
-    const workUsd = volMap[s.ref] || 0;
-    const workShare = workTotal > 0 ? workUsd / workTotal : 0;
-    const seatShare = CAPITAL_WEIGHT * capitalShare + WORK_WEIGHT * workShare;
-    return {
-      ...s,
-      workUsd,
-      capitalShare,
-      workShare,
-      seatShare,
-      weights: { capital: CAPITAL_WEIGHT, work: WORK_WEIGHT }
-    };
-  }).sort((a, b) => b.seatShare - a.seatShare);
+  return inRound
+    .map((s) => {
+      const capitalShare = capitalTotal > 0 ? (Number(s.usd) || 0) / capitalTotal : 0;
+      const workUsd = volMap[s.ref] || 0;
+      const monthUsd = monthMap[s.ref] || 0;
+      const workShare = workTotal > 0 ? workUsd / workTotal : 0;
+      const seatShare = CAPITAL_WEIGHT * capitalShare + WORK_WEIGHT * workShare;
+      const path = pathForSeat(workUsd, monthUsd);
+      return {
+        ...s,
+        workUsd,
+        monthUsd,
+        capitalShare,
+        workShare,
+        seatShare,
+        weights: { capital: CAPITAL_WEIGHT, work: WORK_WEIGHT },
+        path
+      };
+    })
+    .sort((a, b) => b.workUsd - a.workUsd || b.seatShare - a.seatShare);
 }
 
 async function getBoard(opts) {
   opts = opts || {};
   const seats = await loadAllSeats();
-  const volMap = await volumeMap();
+  const maps = await volumeMaps();
+  const volMap = maps.all;
+  const monthMap = maps.month;
   const roundState = computeRoundState(seats, volMap);
   const roundId = opts.round != null ? Number(opts.round) : roundState.activeRound;
-  const board = withShares(seats, volMap, roundId);
+  const board = withShares(seats, volMap, monthMap, roundId);
   let mine = null;
   const ref = eventsStore.cleanRef(opts.ref || '');
   const wallet = cleanWallet(opts.wallet || '');
   if (ref || wallet) {
     mine =
       board.find((s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)) ||
-      withShares(seats, volMap, 1).find((s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)) ||
-      withShares(seats, volMap, 2).find((s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)) ||
+      withShares(seats, volMap, monthMap, 1).find(
+        (s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)
+      ) ||
+      withShares(seats, volMap, monthMap, 2).find(
+        (s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)
+      ) ||
       null;
   }
   return {
     ok: true,
     ...roundState,
+    stages: STAGES,
+    skimBps: SKIM_BPS,
+    incentivePool: INCENTIVE_POOL,
+    pathLegend: STAGES.map((s) => ({
+      id: s.id,
+      name: s.name,
+      volumeUsd: s.volumeUsd,
+      monthlyBonusUsd: s.monthlyBonusUsd,
+      blurb: s.blurb,
+      estAtVolume:
+        s.monthlyBonusUsd + (s.volumeUsd * SKIM_BPS) / 10000
+    })),
     board,
     mine,
     store: usePostgres() ? 'postgres' : 'file'
@@ -349,9 +496,13 @@ async function registerSeat(input) {
 
 module.exports = {
   ROUNDS,
+  STAGES,
+  SKIM_BPS,
+  INCENTIVE_POOL,
   CAPITAL_WEIGHT,
   WORK_WEIGHT,
   getBoard,
   registerSeat,
-  cleanWallet
+  cleanWallet,
+  pathForSeat
 };

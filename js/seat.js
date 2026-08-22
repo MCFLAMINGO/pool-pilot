@@ -1,4 +1,4 @@
-/* Pool Pilot partner seat — buy-in + share board */
+/* Pool Pilot partner seat — path, milestones, monthly pay */
 (function () {
   'use strict';
   var L = window.ChainLib;
@@ -25,14 +25,16 @@
     if (!a) return '—';
     return a.slice(0, 6) + '…' + a.slice(-4);
   }
-  function pct(n) {
-    if (n == null || !isFinite(n)) return '—';
-    return (n * 100).toFixed(1) + '%';
-  }
   function fmtUsd(n) {
     if (n == null || !isFinite(n)) return '—';
     if (n < 10) return '$' + n.toFixed(2);
     return '$' + Math.round(n).toLocaleString();
+  }
+  function fmtVol(n) {
+    if (n == null || !isFinite(n) || n <= 0) return '$0';
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'M';
+    if (n >= 1000) return '$' + (n / 1000).toFixed(n % 1000 === 0 ? 0 : 0) + 'k';
+    return fmtUsd(n);
   }
   function apiBase() {
     return P && P.apiBase ? P.apiBase() : location.origin;
@@ -47,12 +49,8 @@
     b.textContent = msg;
     b.classList.remove('hidden');
   }
-  function explorerTx(h) {
-    return CFG.EXPLORER + '/tx/' + h;
-  }
-  function explorerAddr(a) {
-    return CFG.EXPLORER + '/address/' + a;
-  }
+  function explorerTx(h) { return CFG.EXPLORER + '/tx/' + h; }
+  function explorerAddr(a) { return CFG.EXPLORER + '/address/' + a; }
 
   function discoverProviders() {
     var out = [];
@@ -133,58 +131,96 @@
     connect().catch(function (e) { showErr((e && e.message) || e); });
   });
 
+  function renderPathLegend(board) {
+    var legend = board.pathLegend || board.stages || [];
+    if (!legend.length) {
+      $('pathLegend').textContent = 'Milestones loading…';
+      return;
+    }
+    $('pathLegend').innerHTML = legend.map(function (s) {
+      var bonus = s.monthlyBonusUsd != null ? s.monthlyBonusUsd : s.monthlyBonusUsd;
+      return (
+        '<div class="seat-path-item">' +
+        '<div class="seat-path-vol">' + esc(fmtVol(s.volumeUsd)) + ' vol</div>' +
+        '<div><div class="seat-path-name">' + esc(s.name) + '</div>' +
+        '<div class="seat-path-blurb">' + esc(s.blurb || '') + '</div></div>' +
+        '<div class="seat-path-pay">' + fmtUsd(bonus) + '/mo bonus' +
+        '<small>+ 100% of your 0.30% skim</small></div>' +
+        '</div>'
+      );
+    }).join('');
+    if (board.incentivePool && board.incentivePool.note) {
+      $('incentiveNote').textContent = board.incentivePool.note;
+    } else {
+      $('incentiveNote').textContent =
+        'Stage bonuses come from Pool Pilot’s partner incentive pool (treasury). Your $500 ETH stays in your position.';
+    }
+  }
+
   function renderRound(board) {
     S.round = board.round;
     S.board = board;
     var r = board.round;
-    $('roundKicker').textContent = 'Round ' + board.activeRound;
-    $('tierPrice').textContent = '$' + r.usdMin + ' – $' + r.usdMax;
+    var price = r.seatPriceUsd != null ? r.seatPriceUsd : r.usdMin;
+    $('roundKicker').textContent = 'Round ' + board.activeRound + ' · ' + r.maxSeats + ' seats';
+    $('tierPrice').textContent = fmtUsd(price);
     $('tierName').textContent = r.name;
     $('seatsLeft').textContent = String(board.seatsLeft);
-    $('raisedUsd').textContent = fmtUsd(board.raisedUsd);
+    $('seatsTaken').textContent = String(board.seatsTaken);
+    $('seatsMax').textContent = String(r.maxSeats);
     var fill = r.maxSeats > 0 ? (board.seatsTaken / r.maxSeats) * 100 : 0;
     $('progressBar').style.width = Math.min(100, fill) + '%';
     if (board.activeRound === 1) {
       $('nextRoundLine').textContent =
-        'Round 2 opens at $1,000–$5,000 when Round 1 fills (' + r.maxSeats + ' seats), ' +
-        'raises ~' + fmtUsd(r.advanceRaisedUsd) + ', or attributed volume clears ' +
+        'Round 2 ($1k–$5k seats) opens when these ' + r.maxSeats + ' fill, raise hits ' +
+        fmtUsd(r.advanceRaisedUsd) + ', or attributed volume clears ' +
         fmtUsd(board.advance && board.advance.needVolume) + '.';
     } else {
-      $('nextRoundLine').textContent = 'Growth seats are open. Capital + work still set your weight.';
+      $('nextRoundLine').textContent = 'Growth seats open. Same milestones — higher ticket.';
     }
-    var usdEl = $('usd');
-    var cur = Number(usdEl.value);
-    if (!isFinite(cur) || cur < r.usdMin || cur > r.usdMax) {
-      usdEl.value = String(Math.round((r.usdMin + r.usdMax) / 2));
-    }
-    usdEl.min = r.usdMin;
-    usdEl.max = r.usdMax;
+    $('usd').value = String(price);
+    $('usd').min = r.usdMin;
+    $('usd').max = r.usdMax;
+    if (r.usdMin === r.usdMax) $('usd').readOnly = true;
+    else $('usd').readOnly = false;
     updateEthPreview();
+    renderPathLegend(board);
+  }
+
+  function overallProgress(path, stages) {
+    if (!path || !stages || !stages.length) return 0;
+    var maxV = stages[stages.length - 1].volumeUsd || 1;
+    return Math.min(1, (path.workUsd || 0) / maxV);
   }
 
   function renderBoard(board) {
     var rows = board.board || [];
+    var stages = board.stages || [];
     var myRef = P.cleanRef($('ref').value);
     var myWallet = (S.wallet.addr || '').toLowerCase();
     if (!rows.length) {
-      $('boardList').textContent = 'No seats yet — first buy-in opens the board.';
+      $('boardList').textContent = 'No seats yet — first $500 buy-in opens the field.';
       return;
     }
-    var html =
-      '<div class="seat-board-row head"><span>Ref</span><span>Capital</span><span>Work</span><span>Seat</span></div>' +
-      rows.map(function (s) {
-        var mine = (myRef && s.ref === myRef) || (myWallet && s.wallet === myWallet);
-        return (
-          '<div class="seat-board-row' + (mine ? ' mine' : '') + '">' +
-          '<span><strong>' + esc(s.ref) + '</strong><br><span class="mono" style="font-size:0.75rem">' +
-          esc(short(s.wallet)) + '</span></span>' +
-          '<span>' + fmtUsd(s.usd) + '<br><span class="mono">' + pct(s.capitalShare) + '</span></span>' +
-          '<span>' + fmtUsd(s.workUsd) + '<br><span class="mono">' + pct(s.workShare) + '</span></span>' +
-          '<span class="mono">' + pct(s.seatShare) + '</span>' +
-          '</div>'
-        );
-      }).join('');
-    $('boardList').innerHTML = html;
+    var marks = stages.map(function (s) { return esc(s.name); }).join('');
+    $('boardList').innerHTML = rows.map(function (s) {
+      var mine = (myRef && s.ref === myRef) || (myWallet && s.wallet === myWallet);
+      var path = s.path || {};
+      var stageName = (path.stage && path.stage.name) || 'Seated';
+      var pctBar = overallProgress(path, stages) * 100;
+      return (
+        '<div class="seat-lane' + (mine ? ' mine' : '') + '">' +
+        '<div class="seat-lane-top">' +
+        '<div><strong>' + esc(s.ref) + '</strong> · ' + esc(stageName) +
+        '<div class="mono" style="font-size:0.75rem;color:var(--text-muted)">' + esc(short(s.wallet)) + '</div></div>' +
+        '<div style="text-align:right"><div>' + fmtUsd(s.workUsd) + ' vol</div>' +
+        '<div class="mono" style="font-size:0.75rem">' + fmtUsd(path.monthlyEstUsd) + '/mo est.</div></div>' +
+        '</div>' +
+        '<div class="seat-lane-bar"><i style="width:' + pctBar.toFixed(1) + '%"></i></div>' +
+        '<div class="seat-lane-marks">' + marks + '</div>' +
+        '</div>'
+      );
+    }).join('');
   }
 
   function renderMine(board) {
@@ -192,11 +228,39 @@
     if (!mine) {
       $('mineEmpty').classList.remove('hidden');
       $('mineBody').classList.add('hidden');
-      $('mineEmpty').textContent = 'Buy a seat (or load your ref) to see where your ETH sits and your share.';
       return;
     }
     $('mineEmpty').classList.add('hidden');
     $('mineBody').classList.remove('hidden');
+    var path = mine.path || {};
+    $('payMonth').textContent = fmtUsd(path.monthlyEstUsd);
+    $('payBonus').textContent = fmtUsd(path.monthlyBonusUsd);
+    $('paySkim').textContent = fmtUsd(path.skimMtdUsd);
+    var stage = path.stage || {};
+    $('mineStageLabel').textContent = 'Stage · ' + (stage.name || 'Seated');
+    var ms = path.milestones || [];
+    $('mineMilestones').innerHTML = ms.map(function (m) {
+      var cls = 'seat-ms';
+      if (m.reached) cls += ' reached';
+      if (m.current) cls += ' current';
+      if (m.next) cls += ' next';
+      return (
+        '<div class="' + cls + '">' +
+        '<div><div class="ms-name">' + esc(m.name) + '</div>' +
+        '<div class="ms-meta">' + esc(fmtVol(m.volumeUsd)) + ' attributed volume</div></div>' +
+        '<div class="ms-pay">' + fmtUsd(m.monthlyBonusUsd) + '/mo</div>' +
+        '</div>'
+      );
+    }).join('');
+    if (path.nextStage) {
+      var need = Math.max(0, path.nextStage.volumeUsd - (path.workUsd || 0));
+      $('mineNextLine').textContent =
+        'Next: ' + path.nextStage.name + ' at ' + fmtVol(path.nextStage.volumeUsd) +
+        ' — ' + fmtUsd(need) + ' volume to go · then ' + fmtUsd(path.nextStage.monthlyBonusUsd) + '/mo bonus.';
+    } else {
+      $('mineNextLine').textContent = 'Top milestone reached. Keep volume live to hold Killing it pay.';
+    }
+
     $('mineWallet').textContent = mine.wallet;
     $('mineBuyin').textContent =
       fmtUsd(mine.usd) +
@@ -216,15 +280,6 @@
     } else {
       $('mineTx').textContent = '—';
     }
-    $('shareCapital').textContent = pct(mine.capitalShare);
-    $('shareWork').textContent = pct(mine.workShare);
-    $('shareSeat').textContent = pct(mine.seatShare);
-    $('barCapital').style.width = Math.min(100, (mine.capitalShare || 0) * 100) + '%';
-    $('barWork').style.width = Math.min(100, (mine.workShare || 0) * 100) + '%';
-    $('barSeat').style.width = Math.min(100, (mine.seatShare || 0) * 100) + '%';
-    $('mineWorkLine').textContent =
-      'Attributed desk volume for ref “' + mine.ref + '”: ' + fmtUsd(mine.workUsd) +
-      '. Work share rises as your Arrive / swap / Mini App links convert.';
     var links = P.buildLinks({ ref: mine.ref, symbol: mine.symbol || 'MCFL', token: mine.token });
     $('minePack').href = links.pack;
     $('minePartner').href = links.partner;
@@ -260,10 +315,8 @@
         return;
       }
       var eth = usd / ethUsd;
-      var r = S.round;
-      var tip = r ? ('Buy-in window $' + r.usdMin + '–$' + r.usdMax) : '';
       $('ethPreview').textContent =
-        'You deposit ≈ ' + eth.toFixed(5) + ' ETH (@ $' + Math.round(ethUsd) + '/ETH). ' + tip;
+        'You deposit ≈ ' + eth.toFixed(5) + ' ETH (@ $' + Math.round(ethUsd) + '/ETH). Still yours in the NFT.';
     };
     if (S.ethUsd) p(S.ethUsd);
     else L.fetchEthUsd().then(p).catch(function () { $('ethPreview').textContent = 'ETH ≈ (price feed loading…)'; });
@@ -302,7 +355,7 @@
     var usd = Number($('usd').value);
     var r = S.round;
     if (r && (usd < r.usdMin || usd > r.usdMax)) {
-      showErr('Buy-in must be $' + r.usdMin + '–$' + r.usdMax + ' for this round.');
+      showErr('Seat is $' + r.usdMin + (r.usdMin === r.usdMax ? '' : ('–$' + r.usdMax)) + ' this round.');
       return;
     }
     if (S.board && !S.board.open) {
@@ -351,7 +404,7 @@
               if (!reg.j || !reg.j.ok) {
                 throw new Error((reg.j && reg.j.error) || 'Seat registered on-chain but API failed — keep your tx hash.');
               }
-              $('execBox').innerHTML += '<br><strong>Seat live.</strong> Your ETH is in the pool above; share board updated.';
+              $('execBox').innerHTML += '<br><strong>Seat live.</strong> Follow milestones below as your volume lands.';
               return loadBoard();
             });
           });
@@ -361,7 +414,7 @@
       }).then(function () {
         S.busy = false;
         $('buyBtn').disabled = false;
-        $('buyBtn').textContent = 'Buy seat';
+        $('buyBtn').textContent = 'Buy $500 seat';
       });
     };
 
@@ -385,7 +438,6 @@
   P.captureRefFromUrl();
   if (P.getRef()) $('ref').value = P.getRef();
   var q = new URLSearchParams(location.search);
-  if (q.get('usd')) $('usd').value = q.get('usd');
   if (q.get('token')) $('token').value = q.get('token');
 
   loadBoard();
