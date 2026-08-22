@@ -6,6 +6,7 @@
  */
 
 const store = require('./store');
+const seats = require('./seats');
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -96,13 +97,55 @@ async function handler(req, res) {
       return send(res, result.deduped ? 200 : 201, result);
     }
 
-    if (req.method === 'GET' && (pathname === '/api/stats' || pathname.startsWith('/api/stats/') || pathname === '/stats' || pathname.startsWith('/stats/'))) {
+    if (
+      req.method === 'GET' &&
+      (pathname === '/api/stats' ||
+        pathname.startsWith('/api/stats/') ||
+        pathname === '/stats' ||
+        pathname.startsWith('/stats/'))
+    ) {
       const u = new URL(req.url || '/', 'http://local');
       let ref = u.searchParams.get('ref') || '';
       const m = pathname.match(/\/stats\/([^/]+)$/);
       if (m) ref = decodeURIComponent(m[1]);
       const stats = await store.statsForRef(ref, u.searchParams.get('limit'));
       return send(res, 200, { ok: true, ...stats });
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/seats/round' || pathname === '/seats/round')) {
+      const board = await seats.getBoard({});
+      return send(res, 200, {
+        ok: true,
+        activeRound: board.activeRound,
+        round: board.round,
+        rounds: board.rounds,
+        raisedUsd: board.raisedUsd,
+        seatsTaken: board.seatsTaken,
+        seatsLeft: board.seatsLeft,
+        open: board.open,
+        totalAttributedVolumeUsd: board.totalAttributedVolumeUsd,
+        advance: board.advance
+      });
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/seats' || pathname === '/seats')) {
+      const u = new URL(req.url || '/', 'http://local');
+      const board = await seats.getBoard({
+        ref: u.searchParams.get('ref'),
+        wallet: u.searchParams.get('wallet'),
+        round: u.searchParams.get('round')
+      });
+      return send(res, 200, board);
+    }
+
+    if (req.method === 'POST' && (pathname === '/api/seats' || pathname === '/seats')) {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return send(res, 401, { ok: false, error: 'Unauthorized' });
+      }
+      const body = await readBody(req);
+      const result = await seats.registerSeat(body);
+      return send(res, result.deduped ? 200 : 201, result);
     }
 
     return send(res, 404, { ok: false, error: 'Not found', path: pathname });

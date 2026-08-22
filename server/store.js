@@ -241,6 +241,8 @@ async function health() {
 module.exports = {
   cleanRef,
   cleanToken,
+  cleanSymbol,
+  cleanHash,
   insertEvent,
   statsForRef,
   health,

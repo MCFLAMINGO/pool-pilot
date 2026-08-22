@@ -36,7 +36,8 @@ When someone needs to move or trade on Robinhood Chain:
 | Arrive (Relay → swap) | `arrive.html` / `js/arrive.js` |
 | Partner pack | `pack.html` / `js/pack.js` / `js/partnerLib.js` |
 | Partner stats | `partner.html` |
-| Partner API | `server/` (Express) · `api/` (Vercel) — `POST /api/events`, `GET /api/stats/:ref` |
+| Partner seat | `seat.html` / `js/seat.js` — buy-in rounds, where ETH is, capital+work share |
+| Partner API | `server/` (Express) · `api/` (Vercel) — events, stats, seats |
 | Case study | `case.html` |
 | Embed CTA | `embed.html` (frameable) |
 | Press kit | `press.html` |
@@ -51,17 +52,20 @@ When someone needs to move or trade on Robinhood Chain:
 npm run test:reads
 npm run test:swap-quote
 npm run test:partner-api
+npm run test:seats-api
 node test/swap-tri-quote.js
 npm run demo:arrive   # Playwright walkthrough → assets/arrive-demo.mp4
 ```
 
-### Partner backend (attribution)
+### Partner backend (attribution + seats)
 
 ```bash
 npm run server          # Express on :8787 (PORT / API_PORT)
-# File store: data/partner-events.json
+# File store: data/partner-events.json + data/partner-seats.json
 # Postgres when DATABASE_URL / POSTGRES_URL / LOCAL_INTEL_DB_URL is set
 # Optional write gate: PARTNER_INGEST_KEY → clients send X-Partner-Key
 ```
+
+Seats (`/seat`): Round 1 buy-in **$100–$500** (15 seats); Round 2 **$1,000–$5,000** when R1 fills / raise / attributed volume clears thresholds. ETH mints a **user-owned** Uniswap v3 buy wall. Share board = **60% capital + 40% attributed volume**.
 
 On Vercel, `api/[...path].js` serves the same routes under `/api/*` (same origin as the static site). Locally, serve the static site on :3000 and the API on :8787 — `partnerLib` points localhost pages at `http://127.0.0.1:8787`.

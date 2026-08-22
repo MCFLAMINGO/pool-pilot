@@ -16,6 +16,7 @@
     "test:all-fork": "node test/fork-sims.js && node test/fee-lp-sim.js && node test/sandwich-sim.js",
     "test:swap-quote": "node test/swap-quote.js",
     "test:partner-api": "node test/partner-api.js",
+    "test:seats-api": "node test/seats-api.js",
     "outreach": "node agents/outreach/run.js",
     "outreach:tick": "node agents/outreach/run.js --tick",
     "outreach:live": "node agents/outreach/run.js --tick --live",
