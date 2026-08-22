@@ -9,6 +9,9 @@ const store = require('./store');
 const seats = require('./seats');
 const house = require('./house');
 const listings = require('./listings');
+const shepherd = require('./shepherd');
+const bonds = require('./bonds');
+const routeChips = require('./routeChips');
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -186,6 +189,85 @@ async function handler(req, res) {
       const body = await readBody(req);
       const result = await listings.registerListing(body);
       return send(res, result.deduped ? 200 : 201, result);
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/route-chips' || pathname === '/route-chips')) {
+      const u = new URL(req.url || '/', 'http://local');
+      return send(res, 200, await routeChips.listRouteChips(Object.fromEntries(u.searchParams.entries())));
+    }
+
+    if (req.method === 'POST' && (pathname === '/api/route-chips' || pathname === '/route-chips')) {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return send(res, 401, { ok: false, error: 'Unauthorized' });
+      }
+      const body = await readBody(req);
+      const result = await routeChips.upsertRouteChip(body);
+      return send(res, 201, result);
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/shepherds' || pathname === '/shepherds')) {
+      const u = new URL(req.url || '/', 'http://local');
+      const board = await shepherd.listShepherds(Object.fromEntries(u.searchParams.entries()));
+      return send(res, 200, board);
+    }
+
+    if (req.method === 'POST' && (pathname === '/api/shepherds' || pathname === '/shepherds')) {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return send(res, 401, { ok: false, error: 'Unauthorized' });
+      }
+      const body = await readBody(req);
+      const result = await shepherd.armShepherd(body);
+      return send(res, result.deduped ? 200 : 201, result);
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/bonds' || pathname === '/bonds')) {
+      const u = new URL(req.url || '/', 'http://local');
+      return send(res, 200, await bonds.listBonds(Object.fromEntries(u.searchParams.entries())));
+    }
+
+    {
+      const mGet = pathname.match(/^\/api\/bonds\/([^/]+)$/) || pathname.match(/^\/bonds\/([^/]+)$/);
+      if (req.method === 'GET' && mGet) {
+        return send(res, 200, await bonds.getBond(decodeURIComponent(mGet[1])));
+      }
+    }
+
+    if (req.method === 'POST' && (pathname === '/api/bonds' || pathname === '/bonds')) {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return send(res, 401, { ok: false, error: 'Unauthorized' });
+      }
+      const body = await readBody(req);
+      const result = await bonds.createBond(body);
+      return send(res, result.deduped ? 200 : 201, result);
+    }
+
+    {
+      const mPledge = pathname.match(/^\/api\/bonds\/([^/]+)\/pledge$/) || pathname.match(/^\/bonds\/([^/]+)\/pledge$/);
+      if (req.method === 'POST' && mPledge) {
+        const key = process.env.PARTNER_INGEST_KEY;
+        if (key && req.headers['x-partner-key'] !== key) {
+          return send(res, 401, { ok: false, error: 'Unauthorized' });
+        }
+        const body = await readBody(req);
+        const result = await bonds.pledgeBond(decodeURIComponent(mPledge[1]), body);
+        return send(res, result.deduped ? 200 : 201, result);
+      }
+    }
+
+    {
+      const mGrad = pathname.match(/^\/api\/bonds\/([^/]+)\/graduate$/) || pathname.match(/^\/bonds\/([^/]+)\/graduate$/);
+      if (req.method === 'POST' && mGrad) {
+        const key = process.env.PARTNER_INGEST_KEY;
+        if (key && req.headers['x-partner-key'] !== key) {
+          return send(res, 401, { ok: false, error: 'Unauthorized' });
+        }
+        const body = await readBody(req);
+        const result = await bonds.graduateBond(decodeURIComponent(mGrad[1]), body);
+        return send(res, 200, result);
+      }
     }
 
     return send(res, 404, { ok: false, error: 'Not found', path: pathname });

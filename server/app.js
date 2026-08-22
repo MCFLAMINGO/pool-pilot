@@ -5,6 +5,9 @@ const store = require('./store');
 const seats = require('./seats');
 const house = require('./house');
 const listings = require('./listings');
+const shepherd = require('./shepherd');
+const bonds = require('./bonds');
+const routeChips = require('./routeChips');
 
 function clientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -176,6 +179,103 @@ function createApp() {
       }
       const result = await listings.registerListing(req.body || {});
       res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/route-chips', async (req, res) => {
+    try {
+      res.json(await routeChips.listRouteChips(req.query || {}));
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/route-chips', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await routeChips.upsertRouteChip(req.body || {});
+      res.status(201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/shepherds', async (req, res) => {
+    try {
+      res.json(await shepherd.listShepherds(req.query || {}));
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/shepherds', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await shepherd.armShepherd(req.body || {});
+      res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/bonds', async (req, res) => {
+    try {
+      res.json(await bonds.listBonds(req.query || {}));
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/bonds/:id', async (req, res) => {
+    try {
+      res.json(await bonds.getBond(req.params.id));
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/bonds', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await bonds.createBond(req.body || {});
+      res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/bonds/:id/pledge', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await bonds.pledgeBond(req.params.id, req.body || {});
+      res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/bonds/:id/graduate', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await bonds.graduateBond(req.params.id, req.body || {});
+      res.json(result);
     } catch (e) {
       res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
     }

@@ -547,13 +547,13 @@
     }
   }
 
-  function renderTokenDirectories(paidExtra) {
+  function renderTokenDirectories(paidExtra, routeExtra) {
     var T = window.PoolPilotTokens;
     if (!T) return;
     var featuredBox = $('featuredChips');
     var communityBox = $('communityChips');
     if (featuredBox) {
-      featuredBox.innerHTML = T.featuredTokens(paidExtra || []).map(function (t) {
+      featuredBox.innerHTML = T.featuredTokens(paidExtra || [], routeExtra || []).map(function (t) {
         return T.chipHtml(t);
       }).join('');
       bindChipClicks(featuredBox);
@@ -586,10 +586,27 @@
       .catch(function () { return []; });
   }
 
+  function loadRouteChips() {
+    var PP = window.PoolPilotPartner;
+    if (PP && PP.captureRefFromUrl) PP.captureRefFromUrl();
+    var ref = PP && PP.getRef ? PP.getRef() : '';
+    if (!ref || ref === 'poolpilot') return Promise.resolve([]);
+    return fetch(apiBase() + '/api/route-chips?ref=' + encodeURIComponent(ref), {
+      headers: { Accept: 'application/json' },
+      mode: 'cors'
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !Array.isArray(j.chips)) return [];
+        return j.chips;
+      })
+      .catch(function () { return []; });
+  }
+
   renderTokenDirectories([]);
   updateTokenConfirm();
-  loadPaidListings().then(function (extra) {
-    if (extra && extra.length) renderTokenDirectories(extra);
+  Promise.all([loadPaidListings(), loadRouteChips()]).then(function (parts) {
+    renderTokenDirectories(parts[0] || [], parts[1] || []);
   });
 
   /* ---------------- render: state ---------------- */
