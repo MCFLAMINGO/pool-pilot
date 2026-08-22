@@ -196,17 +196,19 @@ async function main() {
         !pubBoard.json.board.some((s) => s.ref === 'poolpilot')
     );
 
-    const noKey = await req(port, 'GET', '/api/ops/reach');
+    const noKey = await req(port, 'GET', '/api/reach');
     check('reach needs key when unset → 503', noKey.status === 503);
 
     process.env.HOUSE_VIEW_KEY = 'house-secret';
-    const badKey = await req(port, 'GET', '/api/ops/reach?key=wrong');
+    const badKey = await req(port, 'GET', '/api/reach?key=wrong');
     check('reach bad key 401', badKey.status === 401);
-    const reach = await req(port, 'GET', '/api/ops/reach?key=house-secret');
+    const reach = await req(port, 'GET', '/api/reach?key=house-secret');
     check('reach ok', reach.status === 200 && reach.json.ok);
     check('reach house vol', reach.json.house && reach.json.house.volumeUsd >= 12000);
     check('reach partner vol', reach.json.partners && reach.json.partners.volumeUsd >= 30000);
     check('natural share set', reach.json.naturalShare > 0 && reach.json.naturalShare < 1);
+    const reachAlias = await req(port, 'GET', '/api/ops/reach?key=house-secret');
+    check('ops/reach alias', reachAlias.status === 200 && reachAlias.json.ok);
     delete process.env.HOUSE_VIEW_KEY;
   } finally {
     await new Promise((r) => server.close(r));

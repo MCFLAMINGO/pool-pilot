@@ -22,6 +22,25 @@
   function apiBase() {
     return P && P.apiBase ? P.apiBase() : location.origin;
   }
+  function errText(x, status) {
+    if (x == null || x === '') {
+      if (status === 404) return 'Reach API not deployed yet — merge/redeploy, then retry.';
+      if (status === 401) return 'Wrong ops key.';
+      if (status === 503) return 'Set HOUSE_VIEW_KEY in Vercel and redeploy.';
+      return status ? ('HTTP ' + status) : 'Request failed';
+    }
+    if (typeof x === 'string') return x;
+    if (typeof x === 'object') {
+      if (typeof x.message === 'string') return x.message;
+      if (x.error != null) return errText(x.error, status);
+      try {
+        return JSON.stringify(x);
+      } catch (e) {
+        return 'Request failed';
+      }
+    }
+    return String(x);
+  }
   function showErr(msg) {
     var b = $('errBanner');
     if (!msg) {
@@ -88,24 +107,31 @@
     saveKey(key);
     $('opsKey').value = key;
     $('loadBtn').disabled = true;
-    fetch(apiBase() + '/api/ops/reach', {
+    // Single-segment /api/reach — nested /api/ops/reach 404s on this Vercel setup.
+    fetch(apiBase() + '/api/reach', {
       headers: { Accept: 'application/json', 'X-Ops-Key': key },
       mode: 'cors'
     })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { status: r.status, j: j };
+        return r.text().then(function (raw) {
+          var j = null;
+          try {
+            j = raw ? JSON.parse(raw) : null;
+          } catch (e) {
+            j = null;
+          }
+          return { status: r.status, j: j, raw: raw };
         });
       })
       .then(function (res) {
         if (!res.j || !res.j.ok) {
-          throw new Error((res.j && res.j.error) || ('HTTP ' + res.status));
+          throw new Error(errText((res.j && res.j.error) || res.j, res.status));
         }
         render(res.j);
       })
       .catch(function (e) {
         $('reportCard').classList.add('hidden');
-        showErr((e && e.message) || String(e));
+        showErr(errText(e && e.message ? e.message : e));
       })
       .then(function () {
         $('loadBtn').disabled = false;

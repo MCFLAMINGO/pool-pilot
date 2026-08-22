@@ -95,6 +95,17 @@ function createApp() {
     }
   });
 
+  // Single-segment alias — Vercel /api/[...path] only reliably hits one segment here.
+  app.get('/api/reach', async (req, res) => {
+    try {
+      house.authorizeOps(req);
+      const report = await house.getReachReport();
+      res.json(report);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
   app.get('/api/seats', async (req, res) => {
     try {
       const board = await seats.getBoard({
