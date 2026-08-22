@@ -1,0 +1,12 @@
+{
+  "programId": "GLVVVonw3Y3kP1oGfbCMEC7NcosezQDFj6DQhibFUCEA",
+  "oftStore": "23xxT5fNjynb2se2aDhtW77j7CRS4wjqvHrxpd4A9QHu",
+  "escrow": "3KNkUhLLeMRimGM7RbeHdjxmRhTSRLxT4m9Gdehm9v1P",
+  "mint": "CdmKJqhHEkqTr1BFBdcoBNHQvh2BEqLap6ivt2b2pump",
+  "mintDecimals": 6,
+  "rhMcfl": "0x21a91215fbfc4fc002b07cc87698a6fc01aed523",
+  "desk": "0x1Aa92670a4e680081c407E060A3E8BC3D1929a13",
+  "srcEid": 30168,
+  "dstEid": 30416,
+  "solRpc": "https://api.mainnet-beta.solana.com"
+}
