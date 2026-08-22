@@ -754,9 +754,15 @@
   });
   $('swapBtn').addEventListener('click', executeSwap);
 
-  /* Buy USDG — USD → USDG via Robinhood or MoonPay (no custody) */
+  /* Buy USDG — public buy pages only (never a personal Robinhood account URL) */
   (function wireBuyUsdg() {
     var moon = $('buyUsdgMoon');
+    var rh = $('buyUsdgRh');
+    if (rh) {
+      rh.href = 'https://robinhood.com/us/en/crypto/USDG/';
+      rh.rel = 'noopener noreferrer';
+      rh.setAttribute('referrerpolicy', 'no-referrer');
+    }
     if (!moon) return;
     var pk = '';
     try { pk = String(window.MOONPAY_PK || localStorage.getItem('pp_moonpay_pk') || '').trim(); } catch (e) { pk = ''; }
@@ -764,10 +770,9 @@
     u.searchParams.set('currencyCode', 'usdg_robinhood');
     u.searchParams.set('baseCurrencyCode', 'usd');
     if (pk) u.searchParams.set('apiKey', pk);
-    if (S.wallet && S.wallet.addr && !pk) {
-      /* walletAddress requires signed URL + apiKey — skip until keys exist */
-    }
     moon.href = u.toString();
+    moon.rel = 'noopener noreferrer';
+    moon.setAttribute('referrerpolicy', 'no-referrer');
   })();
 
   /* boot from query */
