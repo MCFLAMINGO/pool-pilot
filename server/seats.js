@@ -39,23 +39,24 @@ const ROUNDS = {
 
 /**
  * Volume stages — status ladder on attributed volume.
- * Cash: attributed desk skim (0.30%) auto-transfers to the seat wallet on each
- * attributed swap (same tx flow the trader signs). No manual payouts.
- * Unattributed / house volume skim stays treasury → buy-wall LP.
+ * Cash: after Earner unlock (Ignite / EARNER_VOLUME_USD), attributed desk skim
+ * (0.30%) auto-transfers to the seat wallet. Before that, skim clears to treasury LP.
  */
 const SKIM_BPS = 30;
+/** Lifetime attributed volume required before 0.30% auto-sends to seat wallet. */
+const EARNER_VOLUME_USD = 25000;
 const STAGES = [
   {
     id: 'seated',
     name: 'Seated',
     volumeUsd: 0,
-    blurb: 'ETH parked in your buy wall. Share your ref — attributed skim hits your wallet.'
+    blurb: 'On the field. Drive volume — skim clears to treasury until Earner.'
   },
   {
     id: 'ignite',
     name: 'Ignite',
-    volumeUsd: 25000,
-    blurb: 'First real traction on your links.'
+    volumeUsd: EARNER_VOLUME_USD,
+    blurb: 'Earner unlock — 0.30% skim auto-sends to your seat wallet.'
   },
   {
     id: 'breakout',
@@ -77,16 +78,19 @@ const STAGES = [
   }
 ];
 
-/** Partner cash = automatic on-chain skim to seat wallet (not a payroll check). */
+/** Partner cash after Earner unlock only. */
 const ECONOMICS = {
   partnerCash: true,
-  mode: 'auto_wallet_skim',
+  mode: 'auto_wallet_skim_after_earner',
+  earnerVolumeUsd: EARNER_VOLUME_USD,
   deskSkimBps: SKIM_BPS,
   partnerSkimShareBps: 10000,
-  deskSkimTo: 'seat_wallet_when_ref',
-  partnerEarns: 'auto_skim_plus_buy_wall',
+  deskSkimTo: 'seat_wallet_when_earner',
+  partnerEarns: 'auto_skim_after_earner_plus_buy_wall',
   note:
-    'Attributed swaps auto-send the full 0.30% desk skim to your seat wallet in the swap flow — no claim button, no monthly check. Cold traffic (no ref) still clears to treasury LP. You also keep your buy-wall NFT.'
+    'Until Ignite ($' +
+    EARNER_VOLUME_USD.toLocaleString() +
+    ' attributed), desk skim clears to treasury LP. After Earner unlock, full 0.30% auto-sends to your seat wallet on each attributed swap — no claim button. Buy-wall NFT is always yours.'
 };
 
 const INCENTIVE_POOL = {
@@ -278,33 +282,47 @@ function stageForVolume(workUsd) {
 
 function pathForSeat(workUsd, monthUsd) {
   const { stage, next, progressToNext, stageIndex } = stageForVolume(workUsd || 0);
-  const skimLife = ((workUsd || 0) * SKIM_BPS) / 10000;
-  const skimMtd = ((monthUsd || 0) * SKIM_BPS) / 10000;
+  const work = workUsd || 0;
+  const month = monthUsd || 0;
+  const skimLife = (work * SKIM_BPS) / 10000;
+  const skimMtd = (month * SKIM_BPS) / 10000;
+  const earner = work >= EARNER_VOLUME_USD;
+  const needToEarn = Math.max(0, EARNER_VOLUME_USD - work);
+  const overallProgress = Math.min(1, work / (STAGES[STAGES.length - 1].volumeUsd || 1));
   const milestones = STAGES.map((s) => ({
     id: s.id,
     name: s.name,
     volumeUsd: s.volumeUsd,
     monthlyBonusUsd: 0,
     blurb: s.blurb,
-    reached: (workUsd || 0) >= s.volumeUsd,
+    reached: work >= s.volumeUsd,
     current: s.id === stage.id,
-    next: next && s.id === next.id
+    next: next && s.id === next.id,
+    earnerGate: s.volumeUsd === EARNER_VOLUME_USD
   }));
   return {
     stage,
     nextStage: next,
     stageIndex,
     progressToNext,
-    workUsd: workUsd || 0,
-    monthUsd: monthUsd || 0,
+    overallProgress,
+    workUsd: work,
+    monthUsd: month,
     skimBps: SKIM_BPS,
-    /** Cash your attributed volume contributes (0.30%) — auto to seat wallet. */
+    earner,
+    earnerVolumeUsd: EARNER_VOLUME_USD,
+    needToEarnUsd: needToEarn,
+    /** Potential / attributed skim from volume (always visible). */
     skimLifetimeUsd: skimLife,
     skimMtdUsd: skimMtd,
+    /** Live wallet skim only after Earner; before that, clears to treasury. */
+    liveSkimLifetimeUsd: earner ? skimLife : 0,
+    liveSkimMtdUsd: earner ? skimMtd : 0,
+    treasuryClearedSkimUsd: earner ? 0 : skimLife,
     deskSkimOnMonthUsd: skimMtd,
     monthlyBonusUsd: 0,
-    monthlyEstUsd: skimMtd,
-    partnerCash: true,
+    monthlyEstUsd: earner ? skimMtd : 0,
+    partnerCash: earner,
     economics: ECONOMICS,
     milestones
   };
@@ -467,9 +485,12 @@ async function getBoard(opts) {
     roundBoard,
     mine,
     attribution: {
-      how: 'Swaps with ?ref= (or sticky pp_ref) credit that seat. Desk 0.30% on attributed swaps auto-transfers to the seat wallet in the swap flow. No ref → treasury LP (house).',
+      how: 'Swaps with ?ref= credit that seat. After Earner (Ignite / $' +
+        EARNER_VOLUME_USD.toLocaleString() +
+        ' vol), 0.30% auto-transfers to the seat wallet. Before Earner (and with no ref), skim clears to treasury LP.',
       autoBindWallet: true,
       autoSkimToSeat: true,
+      earnerVolumeUsd: EARNER_VOLUME_USD,
       skimBps: SKIM_BPS,
       partnerCash: true,
       houseRef: eventsStore.HOUSE_REF,
@@ -568,6 +589,7 @@ module.exports = {
   ROUNDS,
   STAGES,
   SKIM_BPS,
+  EARNER_VOLUME_USD,
   ECONOMICS,
   INCENTIVE_POOL,
   CAPITAL_WEIGHT,

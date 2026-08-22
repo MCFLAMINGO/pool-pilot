@@ -1,0 +1,181 @@
+/* Jockey field — side-by-side seat progression */
+.field-body {
+  background:
+    radial-gradient(90% 60% at 50% -10%, rgba(232, 120, 72, 0.14), transparent 55%),
+    linear-gradient(180deg, #f7f3ee 0%, #efe8df 45%, #e8dfd4 100%);
+  min-height: 100vh;
+}
+.field-shell { max-width: 1100px; }
+.field-hero {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) 0 var(--space-3);
+}
+.field-hero h2 {
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  letter-spacing: -0.03em;
+  margin: 0 0 var(--space-2);
+}
+.field-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: var(--space-3) 0;
+}
+.field-legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.field-legend .dot.seated { background: #8a7a6a; }
+.field-legend .dot.earner { background: #c45c32; }
+.field-legend .dot.open { background: transparent; border: 1.5px solid #a89888; }
+
+.field-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+  margin-bottom: var(--space-5);
+}
+
+.jockey {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  padding: 12px 10px 14px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(60, 40, 20, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 248, 0.95) 0%, rgba(245, 238, 228, 0.9) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.jockey:hover { transform: translateY(-2px); }
+.jockey.mine {
+  border-color: #e87848;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 236, 0.98) 0%, rgba(250, 232, 218, 0.95) 100%);
+}
+.jockey.open {
+  border-style: dashed;
+  opacity: 0.72;
+  background: rgba(255, 255, 255, 0.35);
+}
+.jockey.earner {
+  border-color: rgba(196, 92, 50, 0.45);
+}
+
+.jockey-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.jockey-ref {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+  margin: 4px 0 2px;
+  word-break: break-all;
+}
+.jockey-stage {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a7a6a;
+  margin-bottom: 8px;
+}
+.jockey.earner .jockey-stage { color: #c45c32; }
+
+.jockey-rail {
+  flex: 1;
+  position: relative;
+  margin: 4px 0 10px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent,
+      transparent 18px,
+      rgba(60, 40, 20, 0.06) 18px,
+      rgba(60, 40, 20, 0.06) 19px
+    ),
+    linear-gradient(180deg, rgba(232, 120, 72, 0.08), transparent 40%);
+  overflow: hidden;
+  min-height: 120px;
+}
+.jockey-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  background: linear-gradient(180deg, rgba(232, 120, 72, 0.85), rgba(196, 92, 50, 0.55));
+  transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 0 0 6px 6px;
+}
+.jockey-marker {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a1410;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: bottom 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 1;
+}
+.jockey.open .jockey-marker { display: none; }
+
+.jockey-stats {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.jockey-stats strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.jockey-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(196, 92, 50, 0.35);
+  color: #c45c32;
+  background: rgba(232, 120, 72, 0.1);
+}
+.jockey-badge.queued {
+  color: #6a5a4a;
+  border-color: rgba(60, 40, 20, 0.15);
+  background: rgba(60, 40, 20, 0.05);
+}
+
+.field-foot {
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 520px) {
+  .field-track {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .jockey { min-height: 240px; }
+}

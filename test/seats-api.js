@@ -133,15 +133,17 @@ async function main() {
     const board = await req(port, 'GET', '/api/seats?ref=alice');
     check('mine has path', board.json.mine && board.json.mine.path);
     check('alice ignite', board.json.mine.path.stage.id === 'ignite');
+    check('alice is earner', board.json.mine.path.earner === true);
     check('partner cash on', board.json.mine.path.partnerCash === true);
     check('skim mtd 90', Math.abs(board.json.mine.path.skimMtdUsd - 90) < 0.01);
-    check('skim life 90', Math.abs(board.json.mine.path.skimLifetimeUsd - 90) < 0.01);
-    check('auto wallet mode', board.json.economics && board.json.economics.mode === 'auto_wallet_skim');
+    check('live skim 90', Math.abs(board.json.mine.path.liveSkimLifetimeUsd - 90) < 0.01);
+    check('earner mode', board.json.economics && board.json.economics.mode === 'auto_wallet_skim_after_earner');
     check('milestone reached ignite', board.json.mine.path.milestones.some((m) => m.id === 'ignite' && m.reached));
     check('board lists all seats', Array.isArray(board.json.board) && board.json.board.length === 1);
     check('seatsTakenAll', board.json.seatsTakenAll === 1);
     check('seatsByRound r1', board.json.seatsByRound && board.json.seatsByRound[1] === 1);
     check('attribution meta', board.json.attribution && board.json.attribution.autoBindWallet === true);
+    check('earner volume gate', board.json.attribution && board.json.attribution.earnerVolumeUsd === 25000);
 
     const byWallet = await req(
       port,
@@ -160,6 +162,11 @@ async function main() {
       symbol: 'MCFL'
     });
     check('bob seat 201', bob.status === 201 && bob.json.ok);
+
+    const bobBoard = await req(port, 'GET', '/api/seats?ref=bob');
+    check('bob not earner yet', bobBoard.json.mine && bobBoard.json.mine.path.earner === false);
+    check('bob need to earn', bobBoard.json.mine.path.needToEarnUsd === 25000);
+    check('bob live skim 0', bobBoard.json.mine.path.liveSkimLifetimeUsd === 0);
 
     const all = await req(port, 'GET', '/api/seats');
     check('field has both seats', all.json.board && all.json.board.length === 2);

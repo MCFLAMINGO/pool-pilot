@@ -32,6 +32,7 @@
     </a>
     <div class="spacer"></div>
     <button type="button" class="btn btn-ghost" id="walletBtn" data-testid="button-seat-wallet">Connect</button>
+    <a class="btn btn-ghost" href="/field" data-testid="link-seat-field">Jockey field</a>
     <a class="btn btn-ghost" href="/mcfl" data-testid="link-seat-mcfl">MCFL bridge</a>
     <a class="btn btn-ghost" href="/pack" data-testid="link-seat-pack">Pack</a>
     <a class="btn btn-ghost" href="/partner" data-testid="link-seat-stats">Stats</a>
@@ -41,14 +42,14 @@
 
   <section class="card seat-hero" data-testid="card-seat">
     <p class="bd-kicker" id="roundKicker">Round 1 · 12 seats</p>
-    <h2>Buy the seat. Drive volume. Skim hits your wallet.</h2>
-    <p class="bd-lead">Park <strong>$500</strong> of ETH in a buy wall <em>you</em> own. Share your <span class="mono">ref</span> links — every attributed Pool Pilot swap auto-sends the <strong>0.30% desk skim</strong> to your seat wallet. No claim button. Cold traffic (no ref) still clears to treasury LP.</p>
+    <h2>Buy the seat. Race the field. Earn at Ignite.</h2>
+    <p class="bd-lead">Park <strong>$500</strong> of ETH in a buy wall <em>you</em> own. Share your <span class="mono">ref</span> — climb volume on the jockey field. <strong>Earner unlock at Ignite ($25k)</strong>: then 0.30% skim auto-sends to your seat wallet. Before that, skim clears to treasury LP.</p>
 
     <ol class="seat-steps" data-testid="seat-steps">
       <li><span class="n">1</span><div><strong>Buy seat — $500</strong><span>ETH into your Uniswap buy wall (still yours)</span></div></li>
       <li><span class="n">2</span><div><strong>Drive volume</strong><span>Arrive / swap / Mini App with your ref</span></div></li>
-      <li><span class="n">3</span><div><strong>See volume → cash</strong><span>0.30% of attributed volume = skim to you</span></div></li>
-      <li><span class="n">4</span><div><strong>Auto to wallet</strong><span>Same swap flow — skim transfers to your seat address</span></div></li>
+      <li><span class="n">3</span><div><strong>Race on the field</strong><span>Side-by-side progression vs every seat</span></div></li>
+      <li><span class="n">4</span><div><strong>Earner @ $25k</strong><span>Then 0.30% skim auto to your wallet</span></div></li>
     </ol>
 
     <div class="seat-tier" id="tierBox" data-testid="seat-tier">
@@ -67,7 +68,7 @@
 
   <section class="card" data-testid="card-seat-path">
     <h3>Goals &amp; milestones</h3>
-    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks stages on the Live field. Cash = <strong>0.30% of that volume</strong>, auto-sent to your seat wallet on each attributed swap.</p>
+    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks stages. <strong>Earner</strong> at Ignite ($25k) turns on wallet skim. See everyone race on the <a href="/field">jockey field</a>.</p>
     <div class="seat-path" id="pathLegend" data-testid="seat-path-legend">
       <!-- filled by js -->
     </div>
@@ -144,16 +145,19 @@
     <ol class="seat-steps" data-testid="seat-attr-steps">
       <li><span class="n">1</span><div><strong>You buy a seat</strong><span>Your wallet + ref are registered on the field</span></div></li>
       <li><span class="n">2</span><div><strong>You share Arrive / Swap / Mini App links</strong><span>Pack builds them with <span class="mono">?ref=yours</span></span></div></li>
-      <li><span class="n">3</span><div><strong>They swap on Pool Pilot</strong><span>0.30% skim auto-transfers to your seat wallet · volume hits your lane</span></div></li>
-      <li><span class="n">4</span><div><strong>Connect your seat wallet</strong><span>We auto-bind your ref so your own desk swaps count too</span></div></li>
+      <li><span class="n">3</span><div><strong>They swap on Pool Pilot</strong><span>Volume hits your lane · skim to treasury until Earner</span></div></li>
+      <li><span class="n">4</span><div><strong>Hit Ignite ($25k)</strong><span>You’re an Earner — 0.30% auto to your seat wallet</span></div></li>
     </ol>
     <p class="bd-lead" id="attrLiveLine" data-testid="text-seat-attr-live" style="margin-top:var(--space-3)">Attributed ref: —</p>
   </section>
 
   <section class="card" data-testid="card-seat-board">
-    <h3>Live field — every seat</h3>
-    <p class="bd-lead">All holders, every round. Lifetime attributed volume + stage. Your lane highlights when your wallet or ref matches.</p>
-    <div id="boardMeta" class="bd-lead mono" data-testid="text-seat-board-meta" style="margin-bottom:var(--space-3)"></div>
+    <h3>Live field</h3>
+    <p class="bd-lead">Compact list here — full <strong>jockeys side by side</strong> on the field page.</p>
+    <div class="bd-actions" style="margin-top:0">
+      <a class="btn btn-primary" href="/field" data-testid="link-seat-open-field">Open jockey field</a>
+    </div>
+    <div id="boardMeta" class="bd-lead mono" data-testid="text-seat-board-meta" style="margin:var(--space-3) 0"></div>
     <div id="boardList" class="seat-board" data-testid="seat-board">Loading…</div>
   </section>
 </div>
