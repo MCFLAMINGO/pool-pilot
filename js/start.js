@@ -914,6 +914,24 @@
         ]
       },
       {
+        id: 'shepherd',
+        tag: 'Optional · Launch guard',
+        title: 'Shepherd · $100',
+        why: 'First-day bodyguard for your Uniswap pool: fair open, sniper soak, floor nurse. Risks are listed in plain English. Guard purse stays yours. Arms rules + fee; defense moves still need your wallet.',
+        actions: [
+          { label: 'Open Shepherd desk', href: '/shepherd' }
+        ]
+      },
+      {
+        id: 'bond',
+        tag: 'Optional · Community funding',
+        title: 'USDG Bond desk · $50 create',
+        why: 'Let a community fund the launch in USDG and get in before the book. At target: graduate → seed Uniswap on Robinhood, then Super Chain OFT is queued (not mid-curve). Desk ledger v1 — same product story when on-chain curves land.',
+        actions: [
+          { label: 'Open Bond desk', href: '/bond' }
+        ]
+      },
+      {
         id: 'commerce',
         tag: 'Products',
         title: 'Printify · Shopify · content',
@@ -1041,9 +1059,12 @@
   if (location.hash === '#get-mcfl') openGetMcfl();
   try {
     var h = (location.hash || '').replace(/^#/, '');
-    if (h === 'mod-featured' || h === 'featured') {
+    if (h === 'mod-featured' || h === 'featured' || h === 'mod-shepherd' || h === 'shepherd' || h === 'mod-bond' || h === 'bond') {
       setTimeout(function () {
-        var el = $('mod-featured');
+        var id = (h === 'featured' || h === 'mod-featured') ? 'mod-featured'
+          : (h === 'shepherd' || h === 'mod-shepherd') ? 'mod-shepherd'
+          : 'mod-bond';
+        var el = $(id);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 120);
     }

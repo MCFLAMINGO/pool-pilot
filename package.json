@@ -19,6 +19,8 @@
     "test:partner-api": "node test/partner-api.js",
     "test:seats-api": "node test/seats-api.js",
     "test:listings-api": "node test/listings-api.js",
+    "test:shepherd-api": "node test/shepherd-api.js",
+    "test:bonds-api": "node test/bonds-api.js",
     "test:partner-fee": "node test/partner-fee.js",
     "test:seat-protect": "node test/seat-protect.js",
     "test:lp-exit": "node test/lp-exit.js",

@@ -45,6 +45,8 @@ When someone needs to move or trade on Robinhood Chain:
 | Demo video | `demo/arrive-walkthrough.mjs` (`npm run demo:arrive`) |
 | TG Mini App | `tg-swap.html` / `js/tgBoot.js` |
 | Start desk | `start.html` / `js/start.js` |
+| Shepherd | `shepherd.html` / `js/shepherd.js` — first-day launch guard ($100) |
+| USDG Bond desk | `bond.html` / `js/bond.js` — community fund → graduate → Super Chain queue ($50 create) |
 | Outreach | `agents/outreach/` |
 
 ## Respect bar
@@ -54,6 +56,9 @@ npm run test:reads
 npm run test:swap-quote
 npm run test:partner-api
 npm run test:seats-api
+npm run test:listings-api
+npm run test:shepherd-api
+npm run test:bonds-api
 node test/swap-tri-quote.js
 npm run demo:arrive   # Playwright walkthrough → assets/arrive-demo.mp4
 ```

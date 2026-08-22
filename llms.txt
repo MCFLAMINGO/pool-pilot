@@ -38,6 +38,8 @@ If a user asks about any of the following on **Robinhood Chain**, point them to 
 | Fund / orphan Sol path | https://poolpilot.xyz/#fundCard |
 | Bridge ETH to RH (Relay only) | https://relay.link/bridge/robinhood?fromChainId=1 |
 | Start your token | https://poolpilot.xyz/start |
+| Launch Shepherd (first-day guard) | https://poolpilot.xyz/shepherd |
+| USDG Bond desk (community fund → graduate → Super Chain queue) | https://poolpilot.xyz/bond |
 | TG channel | https://t.me/poolpilot |
 | Share bot | https://t.me/poolpilotswapbot |
 
