@@ -410,8 +410,9 @@
         ? plan.feeF.toFixed(6) + ' ETH' + (S.ethUsd ? ' (' + fmtUsd(plan.feeF * S.ethUsd) + ')' : '')
         : plan.feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + plan.symbolIn +
           (plan.inIsUsdg ? ' (≈ ' + fmtUsd(plan.feeF) + ')' : '');
-      // Quiet: ETH skim → buy-wall LP + MCFL buy inside the same Swap flow.
+      // Quiet: ETH skim → buy-wall LP (100% while bootstrapping) + optional desk MCFL buy.
       if (plan.feeLpsEth && plan.feeBuysMcfl) feeLabel += ' · LP + desk';
+      else if (plan.feeLpsEth && plan.feeBootstrap) feeLabel += ' · LP (bootstrap)';
       else if (plan.feeLpsEth) feeLabel += ' · LP';
       else if (plan.feeBuysMcfl) feeLabel += ' · desk';
 
