@@ -303,14 +303,25 @@
     $('mineBody').classList.remove('hidden');
     var path = mine.path || {};
     if ($('payVol')) $('payVol').textContent = fmtUsd(path.workUsd);
-    if ($('paySkimLife')) $('paySkimLife').textContent = fmtUsd(path.skimLifetimeUsd != null ? path.skimLifetimeUsd : path.skimMtdUsd);
-    if ($('paySkimMtd')) $('paySkimMtd').textContent = fmtUsd(path.skimMtdUsd);
+    if ($('paySkimLife')) {
+      $('paySkimLife').textContent = fmtUsd(
+        path.earner
+          ? (path.liveSkimLifetimeUsd != null ? path.liveSkimLifetimeUsd : path.skimLifetimeUsd)
+          : (path.treasuryClearedSkimUsd != null ? path.treasuryClearedSkimUsd : path.skimLifetimeUsd)
+      );
+    }
+    if ($('paySkimMtd')) $('paySkimMtd').textContent = fmtUsd(path.earner ? path.liveSkimMtdUsd : path.skimMtdUsd);
     var stage = path.stage || {};
     if ($('econLine')) {
-      $('econLine').textContent =
-        (path.economics && path.economics.note) ||
-        (board.economics && board.economics.note) ||
-        'Volume × 0.30% = skim auto-sent to your seat wallet on each attributed swap.';
+      if (path.earner) {
+        $('econLine').textContent =
+          'Earner unlocked. Attributed 0.30% skim auto-sends to your seat wallet. ' +
+          ((path.economics && path.economics.note) || '');
+      } else {
+        $('econLine').textContent =
+          'Not an Earner yet — ' + fmtUsd(path.needToEarnUsd) +
+          ' volume to Ignite. Until then, your attributed skim clears to treasury LP. Race everyone on the jockey field.';
+      }
     }
     $('mineStageLabel').textContent = 'Stage · ' + (stage.name || 'Seated');
     var ms = path.milestones || [];

@@ -129,6 +129,8 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         if (!j || !j.ok || !j.mine || !j.mine.wallet) return '';
+        // Earner gate: no auto skim to wallet until Ignite volume.
+        if (!j.mine.path || !j.mine.path.earner) return '';
         return cleanWallet(j.mine.wallet);
       })
       .catch(function () { return ''; });

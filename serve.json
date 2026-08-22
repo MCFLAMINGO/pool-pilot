@@ -11,6 +11,7 @@
     { "source": "/embed", "destination": "/embed.html" },
     { "source": "/press", "destination": "/press.html" },
     { "source": "/seat", "destination": "/seat.html" },
+    { "source": "/field", "destination": "/field.html" },
     { "source": "/reach", "destination": "/reach.html" },
     { "source": "/mcfl", "destination": "/mcfl.html" },
     { "source": "/tg-swap", "destination": "/tg-swap.html" },
