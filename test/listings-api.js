@@ -99,10 +99,13 @@ async function main() {
       wallet: '0x1aa92670a4e680081c407e060a3e8bc3d1929a13',
       hash,
       usd: 500,
-      eth: 0.12
+      eth: 0.12,
+      asset: 'ETH',
+      amountIn: 0.12
     });
     check('register 201', ok.status === 201 && ok.json && ok.json.ok && !ok.json.deduped);
     check('symbol', ok.json.listing && ok.json.listing.symbol === 'WIENERAI');
+    check('asset eth', ok.json.listing && ok.json.listing.asset === 'ETH');
 
     const again = await req(port, 'POST', '/api/listings', {
       address: '0x5411f1681830F0Dc163818a96B8D253A78e7A6a4',

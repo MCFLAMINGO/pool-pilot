@@ -145,6 +145,11 @@ async function registerListing(input) {
   const hash = cleanHash(input && input.hash);
   const usd = Number(input && input.usd);
   const eth = input && input.eth != null ? Number(input.eth) : null;
+  const amountIn = input && input.amountIn != null ? Number(input.amountIn) : null;
+  let asset = String((input && input.asset) || '').trim().toUpperCase();
+  if (asset !== 'ETH' && asset !== 'USDG') {
+    asset = eth != null && isFinite(eth) ? 'ETH' : (amountIn != null ? 'USDG' : '');
+  }
 
   if (!address) {
     const err = new Error('Token address required');
@@ -177,7 +182,7 @@ async function registerListing(input) {
     return { ok: true, deduped: true, listing: all.find((r) => r.hash === hash) };
   }
 
-  const row = {
+  var row = {
     t: Date.now(),
     address,
     symbol,
@@ -185,6 +190,8 @@ async function registerListing(input) {
     hash,
     usd,
     eth: isFinite(eth) ? eth : null,
+    asset: asset,
+    amountIn: isFinite(amountIn) ? amountIn : null,
     note: String((input && input.note) || 'featured-listing').slice(0, 64),
     featured: true
   };
