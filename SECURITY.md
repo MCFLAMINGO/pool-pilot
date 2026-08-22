@@ -86,7 +86,7 @@ script-src 'self' https://cdnjs.cloudflare.com;
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com;
 font-src https://fonts.gstatic.com https://cdn.fontshare.com data:;
 img-src 'self' data:;
-connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com;
+connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com;
 form-action 'none'; base-uri 'none';
 ```
 

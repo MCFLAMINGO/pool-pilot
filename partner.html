@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://robinhoodchain.blockscout.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://robinhoodchain.blockscout.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Partner stats — Pool Pilot</title>
-<meta name="description" content="See your Pool Pilot partner ref links and local swap attribution. Live pool reads when a token is set.">
+<meta name="description" content="See your Pool Pilot partner ref links and attributed swap receipts. Live pool reads when a token is set.">
 <meta property="og:title" content="Partner stats — Pool Pilot">
 <meta property="og:url" content="https://poolpilot.xyz/partner">
 <meta property="og:image" content="https://poolpilot.xyz/og-swap.png">
@@ -31,7 +31,7 @@
 
   <section class="card" data-testid="card-partner">
     <h2>Partner stats</h2>
-    <p class="bd-lead">Your <span class="mono">ref</span> rides on Arrive / swap / Mini App links. This page shows your links, local swap receipts from this browser, and live pool reads for your token.</p>
+    <p class="bd-lead">Your <span class="mono">ref</span> rides on Arrive / swap / Mini App links. This page shows your links, attributed swap receipts from the partner API (with local fallback), and live pool reads for your token.</p>
 
     <div class="bd-form">
       <label>Partner ref <input id="ref" placeholder="yourcommunity" data-testid="input-partner-ref"></label>
@@ -41,10 +41,11 @@
     </div>
 
     <div class="bd-stat-grid" id="statGrid" data-testid="partner-stats">
-      <div class="bd-stat"><div class="n" id="statSwaps">—</div><div class="l">Local attributed swaps</div></div>
-      <div class="bd-stat"><div class="n" id="statUsd">—</div><div class="l">Local attributed $ (est.)</div></div>
+      <div class="bd-stat"><div class="n" id="statSwaps">—</div><div class="l">Attributed swaps</div></div>
+      <div class="bd-stat"><div class="n" id="statUsd">—</div><div class="l">Attributed $ (est.)</div></div>
       <div class="bd-stat"><div class="n" id="statPool">—</div><div class="l">Live pool (RH)</div></div>
     </div>
+    <p class="bd-lead">Receipt source: <span class="mono" id="statSource">—</span></p>
 
     <p id="poolLine" class="bd-lead" data-testid="text-partner-pool"></p>
     <p id="linkLine" class="mono bd-url" data-testid="text-partner-arrive"></p>
@@ -54,9 +55,9 @@
       <a class="btn btn-ghost" href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">Blockscout</a>
     </div>
 
-    <h3>Recent local receipts</h3>
-    <div id="eventList" class="bd-lead" data-testid="partner-events">No local receipts yet. Swaps signed in this browser with your ref will show here.</div>
-    <p class="bd-lead" style="margin-top:var(--space-4)">Honest note: without a shared backend, cross-device attribution is manual (Blockscout + your ref links). Local receipts prove demos and shared ops machines.</p>
+    <h3>Recent receipts</h3>
+    <div id="eventList" class="bd-lead" data-testid="partner-events">No attributed receipts yet. Swaps signed with your ref POST to <span class="mono">/api/events</span>.</div>
+    <p class="bd-lead" style="margin-top:var(--space-4)">Swaps mirror to the partner API when reachable; this browser also keeps a local cache. Optional <span class="mono">PARTNER_INGEST_KEY</span> gates writes.</p>
   </section>
 </div>
 <script src="js/partnerLib.js"></script>

@@ -14,6 +14,10 @@
     { "source": "/tg", "destination": "/tg-swap.html" },
     { "source": "/tg-ok", "destination": "/tg-ok.html" }
   ],
+  "functions": {
+    "api/index.js": { "memory": 256, "maxDuration": 10 },
+    "api/[...path].js": { "memory": 256, "maxDuration": 10 }
+  },
   "headers": [
     {
       "source": "/((?!tg-swap\\.html$|tg-swap$|tg$|tg-ok\\.html$|tg-ok$|embed\\.html$|embed$).*)",

@@ -8,7 +8,8 @@ Generate everything from:
 https://poolpilot.xyz/pack?symbol=MCFL&token=0x21a91215fbfc4fc002b07cc87698a6fc01aed523&ref=yourcommunity&usd=25
 ```
 
-Stats / local receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
+Stats / attributed receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
+(API: `GET /api/stats/yourcommunity` · swaps with `?ref=` POST to `/api/events`)  
 Case study template: https://poolpilot.xyz/case?symbol=MCFL&token=0x…  
 Press kit: https://poolpilot.xyz/press
 

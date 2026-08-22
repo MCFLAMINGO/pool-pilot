@@ -7,3 +7,4 @@ node_modules/
 agents/outreach/.state.json
 agents/outreach/targets.json
 demo/out/
+data/

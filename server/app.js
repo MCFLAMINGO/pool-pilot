@@ -1,0 +1,84 @@
+'use strict';
+
+const express = require('express');
+const store = require('./store');
+
+function clientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.length) return xf.split(',')[0].trim();
+  return req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress) : '';
+}
+
+function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(express.json({ limit: '32kb' }));
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '';
+    const allow =
+      !origin ||
+      origin === 'https://poolpilot.xyz' ||
+      origin === 'https://www.poolpilot.xyz' ||
+      /^https:\/\/[\w-]+-mcflamingo\.vercel\.app$/.test(origin) ||
+      /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
+    if (allow && origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Partner-Key');
+    }
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    next();
+  });
+
+  app.get('/api/health', async (_req, res) => {
+    try {
+      const h = await store.health();
+      res.json({ ok: true, service: 'pool-pilot-partner', ...h, ts: Date.now() });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/events', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key) {
+        const got = req.headers['x-partner-key'];
+        if (got !== key) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await store.insertEvent(req.body || {}, { ip: clientIp(req) });
+      res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/stats', async (req, res) => {
+    try {
+      const ref = store.cleanRef(req.query.ref || '');
+      const stats = await store.statsForRef(ref, req.query.limit);
+      res.json({ ok: true, ...stats });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/stats/:ref', async (req, res) => {
+    try {
+      const stats = await store.statsForRef(req.params.ref, req.query.limit);
+      res.json({ ok: true, ...stats });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.use((req, res) => {
+    res.status(404).json({ ok: false, error: 'Not found', path: req.path });
+  });
+
+  return app;
+}
+
+module.exports = { createApp };
