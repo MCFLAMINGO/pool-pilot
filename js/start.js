@@ -35,9 +35,16 @@
   };
 
   var FEES = {
-    desk: { id: 'desk', usd: 50, title: 'Unlock Start Desk', desc: 'Stage + full module access confirmation · paid in MCFL' },
-    buybot: { id: 'buybot', usd: 50, title: 'Telegram buy bot setup', desc: 'We wire a buy bot for your TG · paid in MCFL · never pay random DMs' },
-    marketer: { id: 'marketer', usd: 200, title: 'Marketing intro', desc: 'Pay $200 in MCFL · we forward your Stage pack to the marketer' }
+    desk: { id: 'desk', usd: 50, title: 'Unlock Start Desk', desc: 'Stage + full module access confirmation · paid in MCFL', asset: 'MCFL' },
+    buybot: { id: 'buybot', usd: 50, title: 'Telegram buy bot setup', desc: 'We wire a buy bot for your TG · paid in MCFL · never pay random DMs', asset: 'MCFL' },
+    marketer: { id: 'marketer', usd: 200, title: 'Marketing intro', desc: 'Pay $200 in MCFL · we forward your Stage pack to the marketer', asset: 'MCFL' },
+    featured: {
+      id: 'featured',
+      usd: 500,
+      title: 'Front-page featured chip',
+      desc: 'Optional · $500 in ETH or USDG buys MCFL for treasury · auto-lists icon + address on the homepage',
+      asset: 'ETH_USDG'
+    }
   };
 
   var S = {
@@ -45,7 +52,7 @@
     wallet: { addr: null, chainOk: false },
     mcflBal: null,
     busy: false,
-    paid: { desk: false, buybot: false, marketer: false }
+    paid: { desk: false, buybot: false, marketer: false, featured: false }
   };
 
   /* ---------------- theme: inherit system via styles.css vars; light default from index pattern ---------------- */
@@ -57,7 +64,7 @@
   function explorerTx(h) { return CFG.EXPLORER + '/tx/' + h; }
 
   /* ---------------- stage ---------------- */
-  var STAGE_FIELDS = ['fName', 'fTicker', 'fTagline', 'fUse', 'fBlurb', 'fLong', 'fLogo', 'fSite', 'fPaper', 'fX', 'fTg', 'fDisc', 'fContracts', 'fNotes'];
+  var STAGE_FIELDS = ['fName', 'fTicker', 'fRhAddr', 'fTagline', 'fUse', 'fBlurb', 'fLong', 'fLogo', 'fSite', 'fPaper', 'fX', 'fTg', 'fDisc', 'fContracts', 'fNotes'];
 
   function readStage() {
     var o = {};
@@ -111,6 +118,7 @@
       '',
       'Contracts:',
       s.fContracts,
+      'Robinhood address: ' + (s.fRhAddr || '(set in Stage)'),
       '',
       'MCFL (platform fee token, Robinhood): ' + CFG.MCFL,
       'Generated from Pool Pilot — Start your token (poolpilot.xyz/start)'
@@ -477,6 +485,178 @@
     });
   }
 
+  function sendTxAndWait(tx) {
+    return sendTx(tx).then(function (hash) {
+      return read.waitForTransaction(hash, 1, 180000).then(function (rc) {
+        if (!rc || rc.status !== 1) throw new Error('Transaction reverted.');
+        return hash;
+      });
+    });
+  }
+
+  function apiBase() {
+    return (window.PoolPilotPartner && window.PoolPilotPartner.apiBase)
+      ? window.PoolPilotPartner.apiBase()
+      : location.origin;
+  }
+
+  function resolveRhAddress() {
+    var raw = (($('fRhAddr') && $('fRhAddr').value) || '').trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(raw)) {
+      var contracts = (($('fContracts') && $('fContracts').value) || '');
+      var m = contracts.match(/0x[0-9a-fA-F]{40}/);
+      if (m) raw = m[0];
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(raw)) return '';
+    try { return ethers.utils.getAddress(raw); } catch (e) { return raw; }
+  }
+
+  function registerFeaturedListing(payload) {
+    var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    if (window.POOL_PILOT_PARTNER_KEY) headers['X-Partner-Key'] = String(window.POOL_PILOT_PARTNER_KEY);
+    return fetch(apiBase() + '/api/listings', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload),
+      mode: 'cors'
+    }).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, j: j }; });
+    });
+  }
+
+  /** Optional $500 front-page chip — pay ETH or USDG; swap buys MCFL for treasury; auto-lists. */
+  function payFeatured() {
+    if (!gatesOk()) {
+      openModal('<h3>Complete the gates first</h3><p class="msub">Liquidity acknowledgment + liability (“I UNDERSTAND”) are required before platform payments.</p><button class="btn btn-ghost btn-lg" id="mClose">Close</button>');
+      $('mClose').addEventListener('click', closeModal);
+      return;
+    }
+    var symbol = String(($('fTicker') && $('fTicker').value) || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var address = resolveRhAddress();
+    if (!symbol) {
+      openModal('<h3>Add your ticker</h3><p class="msub">Set <strong>Ticker</strong> in Stage first.</p><button class="btn btn-primary btn-lg" id="mClose">Open Stage</button>');
+      $('mClose').addEventListener('click', function () { closeModal(); $('stageCard').scrollIntoView({ behavior: 'smooth' }); });
+      return;
+    }
+    if (!address) {
+      openModal('<h3>Add your Robinhood address</h3><p class="msub">Paste the RH token <span class="mono">0x…</span> in Stage (Robinhood token address).</p><button class="btn btn-primary btn-lg" id="mClose">Open Stage</button>');
+      $('mClose').addEventListener('click', function () { closeModal(); $('stageCard').scrollIntoView({ behavior: 'smooth' }); });
+      return;
+    }
+
+    connect().then(function (ok) {
+      if (!ok) return;
+      openModal(
+        '<h3>Front-page featured chip · $500</h3>' +
+        '<p class="msub">Pay in <strong>ETH</strong> or <strong>USDG</strong>. Your payment buys <strong>MCFL for the treasury</strong>, then your icon + address auto-list on the homepage featured row.</p>' +
+        '<div class="preview">' +
+        '<div class="prow"><span class="k">Token</span><span class="v">' + esc(symbol) + '</span></div>' +
+        '<div class="prow"><span class="k">Address</span><span class="v mono">' + esc(short(address)) + '</span></div>' +
+        '<div class="prow"><span class="k">Price</span><span class="v">$500</span></div>' +
+        '</div>' +
+        '<div id="featErr"></div>' +
+        '<button class="btn btn-primary btn-lg" id="featEth" data-testid="button-feat-eth">Pay with ETH → buy MCFL</button>' +
+        '<button class="btn btn-primary btn-lg" id="featUsdg" style="margin-top:8px" data-testid="button-feat-usdg">Pay with USDG → buy MCFL</button>' +
+        '<button class="btn btn-ghost btn-lg" id="mClose" style="margin-top:8px">Cancel</button>'
+      );
+      $('mClose').addEventListener('click', closeModal);
+
+      function runPay(payWith) {
+        S.busy = true;
+        $('featEth').disabled = true;
+        $('featUsdg').disabled = true;
+        $('featErr').innerHTML = '';
+        openModal('<h3>Building $500 ' + esc(payWith) + ' → MCFL…</h3><div class="skel" style="height:16px;margin:12px 0"></div>');
+        var ethUsdP = S.ethUsd != null ? Promise.resolve(S.ethUsd) : L.fetchEthUsd();
+        ethUsdP.then(function (u) {
+          S.ethUsd = u;
+          return L.planListingPayment(read, {
+            payWith: payWith,
+            usdAmount: FEES.featured.usd,
+            ethUsd: S.ethUsd
+          });
+        }).then(function (plan) {
+          var txs = plan.buildTxs();
+          openModal(
+            '<h3>Confirm listing payment</h3>' +
+            '<p class="msub">' + esc(plan.pathLabel) + ' · ~' +
+            (payWith === 'ETH' ? plan.amountInF.toFixed(5) + ' ETH' : plan.amountInF.toFixed(2) + ' USDG') +
+            ' → ≈ ' + Math.round(plan.amountOutF).toLocaleString() + ' MCFL to treasury</p>' +
+            '<div class="preview">' +
+            txs.map(function (t, i) {
+              return '<div class="prow"><span class="k">Step ' + (i + 1) + '</span><span class="v">' + esc(t.label) + '</span></div>';
+            }).join('') +
+            '</div>' +
+            '<div id="featErr"></div>' +
+            '<button class="btn btn-primary btn-lg" id="featGo" data-testid="button-feat-go">Sign &amp; auto-list</button>' +
+            '<button class="btn btn-ghost btn-lg" id="mClose" style="margin-top:8px">Cancel</button>'
+          );
+          $('mClose').addEventListener('click', function () { S.busy = false; closeModal(); });
+          $('featGo').addEventListener('click', function () {
+            $('featGo').disabled = true;
+            $('featGo').textContent = 'Confirm in wallet…';
+            var chain = Promise.resolve();
+            var lastHash = null;
+            txs.forEach(function (tx, i) {
+              chain = chain.then(function () {
+                $('featGo').textContent = 'Step ' + (i + 1) + '/' + txs.length + '…';
+                return sendTxAndWait(tx).then(function (h) { lastHash = h; return h; });
+              });
+            });
+            return chain.then(function () {
+              $('featGo').textContent = 'Auto-listing…';
+              return registerFeaturedListing({
+                address: address,
+                symbol: symbol,
+                wallet: S.wallet.addr,
+                hash: lastHash,
+                usd: FEES.featured.usd,
+                eth: payWith === 'ETH' ? plan.amountInF : null,
+                amountIn: plan.amountInF,
+                asset: payWith,
+                note: 'start-featured'
+              });
+            }).then(function (reg) {
+              S.busy = false;
+              if (!reg.j || !reg.j.ok) {
+                throw new Error((reg.j && reg.j.error) || 'Payment landed but listing API failed — keep your tx hash.');
+              }
+              S.paid.featured = true;
+              saveStage();
+              saveAcks();
+              renderPays();
+              renderModules();
+              var box = $('payReceipts');
+              if (box) {
+                box.innerHTML += '<div>Featured chip · ' + esc(symbol) + ' · <a href="' + explorerTx(lastHash) + '" target="_blank" rel="noopener">' + short(lastHash) + '</a></div>';
+              }
+              openModal(
+                '<h3>Listed on the front page</h3>' +
+                '<p class="msub">' + esc(symbol) + ' is on the featured row. Payment bought MCFL for treasury.</p>' +
+                '<p class="msub"><a href="' + explorerTx(lastHash) + '" target="_blank" rel="noopener">' + short(lastHash) + '</a></p>' +
+                '<a class="btn btn-primary btn-lg" href="/#' + esc(address) + '">Open your pool</a>' +
+                '<button class="btn btn-ghost btn-lg" id="mClose" style="margin-top:8px">Done</button>'
+              );
+              $('mClose').addEventListener('click', closeModal);
+            }).catch(function (e) {
+              S.busy = false;
+              $('featErr').innerHTML = '<div class="banner err">' + esc((e && e.message) || e) + '</div>';
+              $('featGo').disabled = false;
+              $('featGo').textContent = 'Sign & auto-list';
+            });
+          });
+        }).catch(function (e) {
+          S.busy = false;
+          openModal('<h3>Could not quote</h3><p class="msub">' + esc((e && e.message) || e) + '</p><button class="btn btn-ghost btn-lg" id="mClose">Close</button>');
+          $('mClose').addEventListener('click', closeModal);
+        });
+      }
+
+      $('featEth').addEventListener('click', function () { runPay('ETH'); });
+      $('featUsdg').addEventListener('click', function () { runPay('USDG'); });
+    });
+  }
+
   /* ---------------- Get MCFL ---------------- */
   function openGetMcfl() {
     openModal(
@@ -543,6 +723,10 @@
 
   /* ---------------- pay fee in MCFL ---------------- */
   function payUsd(feeKey) {
+    if (feeKey === 'featured') {
+      payFeatured();
+      return;
+    }
     var fee = FEES[feeKey];
     if (!fee) return;
     if (!gatesOk()) {
@@ -721,6 +905,15 @@
         ]
       },
       {
+        id: 'featured',
+        tag: 'Optional · Pool Pilot',
+        title: 'Front-page featured chip · $500',
+        why: 'Skip if you only need community icons (free when groups use the desk). Pay $500 in ETH or USDG — that payment buys MCFL for the treasury, then your ticker + icon auto-list on the homepage featured row for easy click.',
+        actions: [
+          { label: 'Pay $500 ETH or USDG — list on front page', pay: 'featured' }
+        ]
+      },
+      {
         id: 'commerce',
         tag: 'Products',
         title: 'Printify · Shopify · content',
@@ -776,13 +969,17 @@
     $('payList').innerHTML = Object.keys(FEES).map(function (k) {
       var f = FEES[k];
       var done = S.paid[f.id];
+      var priceLabel = f.asset === 'ETH_USDG'
+        ? '$' + f.usd + ' ETH/USDG → MCFL'
+        : '$' + f.usd + ' in MCFL';
+      var btnLabel = f.asset === 'ETH_USDG' ? 'Pay ETH or USDG' : 'Pay in MCFL';
       return '<div class="pay-row" data-testid="pay-row-' + f.id + '">' +
         '<div class="info"><div class="t">' + esc(f.title) + (done ? ' · paid' : '') + '</div>' +
         '<div class="d">' + esc(f.desc) + '</div></div>' +
-        '<div class="price">$' + f.usd + ' in MCFL</div>' +
+        '<div class="price">' + priceLabel + '</div>' +
         (done
           ? '<span class="btn btn-ghost" style="pointer-events:none">Done</span>'
-          : '<button class="btn btn-primary" data-pay="' + f.id + '">Pay in MCFL</button>') +
+          : '<button class="btn btn-primary" data-pay="' + f.id + '">' + btnLabel + '</button>') +
         '</div>';
     }).join('');
     Array.prototype.forEach.call($('payList').querySelectorAll('[data-pay]'), function (b) {
@@ -842,4 +1039,13 @@
   }
 
   if (location.hash === '#get-mcfl') openGetMcfl();
+  try {
+    var h = (location.hash || '').replace(/^#/, '');
+    if (h === 'mod-featured' || h === 'featured') {
+      setTimeout(function () {
+        var el = $('mod-featured');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
+  } catch (e) { /* ignore */ }
 })();

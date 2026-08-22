@@ -280,12 +280,41 @@ body {
 .entry input:focus { border-color: var(--accent); }
 .entry input::placeholder { color: var(--text-faint); }
 .chips { display: flex; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; }
+.chips-community { max-height: 5.5rem; overflow-y: auto; }
+.chip-hint {
+  font-size: var(--text-xs); color: var(--text-faint); margin: var(--space-1) 0 0;
+}
+.chip-hint a { color: var(--accent); }
 .chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
   font-size: var(--text-xs); font-weight: 600; color: var(--text-muted);
   background: var(--surface-2); border: 1px solid transparent; border-radius: 99px;
-  padding: 0.25rem 0.7rem; cursor: pointer; transition: all 0.15s ease;
+  padding: 0.25rem 0.7rem 0.25rem 0.35rem; cursor: pointer; transition: all 0.15s ease;
 }
 .chip:hover { color: var(--accent); border-color: var(--accent); }
+.chip-icon .chip-img, .token-confirm .chip-img {
+  width: 20px; height: 20px; border-radius: 6px; flex: none; display: block;
+}
+.chip-badge {
+  font-size: 0.65rem; color: var(--accent); margin-left: 0.1rem;
+}
+.chip-badge.community { color: var(--text-faint); }
+.token-confirm-slot {
+  margin-top: var(--space-2);
+}
+.token-confirm-slot[hidden] { display: none !important; }
+button.token-confirm {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%;
+  text-align: left; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.65rem 0.85rem;
+  color: var(--text); transition: border-color 0.15s ease;
+}
+button.token-confirm:hover { border-color: var(--accent); }
+button.token-confirm .chip-img { width: 28px; height: 28px; border-radius: 8px; }
+.token-confirm-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.token-confirm-body strong { font-size: var(--text-sm); letter-spacing: -0.01em; }
+.token-confirm-meta { font-size: var(--text-xs); color: var(--text-muted); }
 
 /* cards */
 .card {

@@ -1465,6 +1465,133 @@
       });
     });
   }
+
+  /**
+   * $500 featured listing — pay in ETH or USDG; proceeds buy MCFL for treasury.
+   * User signs the swap(s); listing API registers after the last hash confirms.
+   */
+  function planListingPayment(provider, opts) {
+    opts = opts || {};
+    var usdAmount = opts.usdAmount == null ? 500 : Number(opts.usdAmount);
+    if (!isFinite(usdAmount) || usdAmount <= 0) throw new Error('Invalid listing price.');
+    var payWith = String(opts.payWith || 'ETH').toUpperCase();
+    if (payWith !== 'ETH' && payWith !== 'USDG') {
+      throw new Error('Pay with ETH or USDG.');
+    }
+    var slipBps = opts.slippageBps == null ? 200 : Number(opts.slippageBps); // 2% — listing size
+    if (!isFinite(slipBps) || slipBps < 50 || slipBps > 1000) throw new Error('Invalid slippage.');
+
+    var ethUsdP = opts.ethUsd != null
+      ? Promise.resolve(opts.ethUsd)
+      : fetchEthUsd();
+
+    return ethUsdP.then(function (ethUsd) {
+      var usd = saneUsd(ethUsd);
+      if (payWith === 'ETH' && usd == null) {
+        throw new Error('Cannot price the listing — ETH/USD feed unavailable.');
+      }
+
+      var amountInF;
+      var sideIn;
+      if (payWith === 'ETH') {
+        amountInF = usdAmount / usd;
+        sideIn = normalizeSwapSide('ETH');
+      } else {
+        amountInF = usdAmount; // 1 USDG ≈ $1
+        sideIn = normalizeSwapSide('USDG');
+      }
+      var sideOut = normalizeSwapSide(CFG.MCFL);
+
+      return resolveSwapRoute(provider, sideIn, sideOut).then(function (route) {
+        var a = route.sideIn;
+        var b = route.sideOut;
+        var amountIn = ethers.utils.parseUnits(
+          amountInF.toFixed(Math.min(a.decimals, payWith === 'ETH' ? 8 : 6)),
+          a.decimals
+        );
+        var quoter = new ethers.Contract(CFG.QUOTER_V2, QUOTER_ABI, provider);
+        var quoteP = route.mode === 'multi'
+          ? quoter.callStatic.quoteExactInput(route.path, amountIn)
+          : quoter.callStatic.quoteExactInputSingle({
+              tokenIn: a.address,
+              tokenOut: b.address,
+              amountIn: amountIn,
+              fee: route.fee,
+              sqrtPriceLimitX96: 0
+            });
+
+        return quoteP.then(function (q) {
+          var amountOut = q.amountOut || q[0];
+          if (!amountOut || amountOut.lte(0)) {
+            throw new Error('No MCFL quote for listing payment — try the other asset.');
+          }
+          var minOut = amountOut.mul(10000 - slipBps).div(10000);
+          var outF = parseFloat(ethers.utils.formatUnits(amountOut, b.decimals));
+          var inF = parseFloat(ethers.utils.formatUnits(amountIn, a.decimals));
+
+          return {
+            payWith: payWith,
+            usdAmount: usdAmount,
+            ethUsd: usd,
+            amountIn: amountIn,
+            amountInF: inF,
+            amountOut: amountOut,
+            amountOutF: outF,
+            minOut: minOut,
+            symbolIn: a.symbol,
+            symbolOut: b.symbol,
+            route: route,
+            pathLabel: route.pathLabel,
+            buildTxs: function () {
+              var txs = [];
+              if (payWith === 'USDG') {
+                txs.push({
+                  label: 'Approve USDG for Uniswap router',
+                  to: CFG.USDG,
+                  value: '0x0',
+                  data: iERC20.encodeFunctionData('approve', [CFG.ROUTER02, amountIn])
+                });
+              }
+              var label =
+                'Listing $' + Math.round(usdAmount) + ' — ' +
+                (payWith === 'ETH' ? inF.toFixed(5) + ' ETH' : inF.toFixed(2) + ' USDG') +
+                ' → buy MCFL for treasury';
+
+              if (route.mode === 'multi') {
+                txs.push({
+                  label: label + ' (' + route.pathLabel + ')',
+                  to: CFG.ROUTER02,
+                  value: '0x0',
+                  data: iRouter.encodeFunctionData('exactInput', [{
+                    path: route.path,
+                    recipient: CFG.TREASURY,
+                    amountIn: amountIn,
+                    amountOutMinimum: minOut
+                  }])
+                });
+              } else {
+                txs.push({
+                  label: label,
+                  to: CFG.ROUTER02,
+                  value: payWith === 'ETH' ? amountIn.toHexString() : '0x0',
+                  data: iRouter.encodeFunctionData('exactInputSingle', [{
+                    tokenIn: a.address,
+                    tokenOut: b.address,
+                    fee: route.fee,
+                    recipient: CFG.TREASURY,
+                    amountIn: amountIn,
+                    amountOutMinimum: minOut,
+                    sqrtPriceLimitX96: 0
+                  }])
+                });
+              }
+              return txs;
+            }
+          };
+        });
+      });
+    });
+  }
   // ETH fee → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
   function payFeeWithEthTx(quote) {
     return treasuryBuyWallTx(
@@ -1556,6 +1683,7 @@
     quoteFee: quoteFee,
     quoteFeeUsd: quoteFeeUsd,
     planBuyMcfl: planBuyMcfl,
+    planListingPayment: planListingPayment,
     planFeeSwap: planFeeSwap,
     planSeatDeposit: planSeatDeposit,
     resolveEthFeeLpShareBps: resolveEthFeeLpShareBps,

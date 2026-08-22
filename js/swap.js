@@ -334,10 +334,12 @@
   function renderTokenChips() {
     var box = $('tokenChips');
     if (!box) return;
+    var T = window.PoolPilotTokens;
     var list = (window.RH_TOKENS || []).filter(function (t) {
       return (t.address || '').toLowerCase() !== CFG.USDG.toLowerCase();
     });
     box.innerHTML = list.map(function (t) {
+      if (T && T.chipHtml) return T.chipHtml(t);
       return '<button type="button" class="chip" data-addr="' + t.address + '" data-sym="' + esc(t.symbol) + '" data-testid="chip-' + esc(t.symbol).toLowerCase() + '">' + esc(t.symbol) + '</button>';
     }).join('');
     Array.prototype.forEach.call(box.querySelectorAll('.chip'), function (c) {
@@ -352,11 +354,42 @@
           ensureDistinct('out');
         }
         highlightChip();
+        updateTokenConfirm();
         syncTokenPick();
         scheduleQuote();
       });
     });
     highlightChip();
+  }
+
+  function updateTokenConfirm() {
+    var slot = $('tokenConfirm');
+    if (!slot || !window.PoolPilotTokens) return;
+    var t = window.PoolPilotTokens.byAddress($('tokenAddr').value);
+    if (!t) {
+      slot.hidden = true;
+      slot.innerHTML = '';
+      return;
+    }
+    slot.hidden = false;
+    slot.innerHTML = window.PoolPilotTokens.confirmHtml(t);
+    var btn = slot.querySelector('[data-addr]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        try {
+          $('tokenAddr').value = ethers.utils.getAddress(btn.getAttribute('data-addr'));
+        } catch (e) {
+          $('tokenAddr').value = btn.getAttribute('data-addr');
+        }
+        if (sideIn() !== 'TOKEN' && sideOut() !== 'TOKEN') {
+          $('tokenOutSel').value = 'TOKEN';
+          ensureDistinct('out');
+        }
+        highlightChip();
+        syncTokenPick();
+        scheduleQuote();
+      });
+    }
   }
   function highlightChip() {
     var cur = (tokenFromUi() || '').toLowerCase();
@@ -636,7 +669,7 @@
     });
   });
   $('amountIn').addEventListener('input', scheduleQuote);
-  $('tokenAddr').addEventListener('input', function () { S.tokenUsd = null; highlightChip(); scheduleQuote(); });
+  $('tokenAddr').addEventListener('input', function () { S.tokenUsd = null; highlightChip(); updateTokenConfirm(); scheduleQuote(); });
   $('maxBtn').addEventListener('click', function () {
     S.amountMode = 'crypto';
     updateUnitBtn();
@@ -690,6 +723,8 @@
   } else if (!$('tokenAddr').value) {
     $('tokenAddr').value = CFG.MCFL;
   }
+  updateTokenConfirm();
+  highlightChip();
 
   if ((q.get('side') || '').toLowerCase() === 'sell') {
     $('tokenInSel').value = 'TOKEN';

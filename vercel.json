@@ -13,6 +13,7 @@
     { "source": "/mcfl", "destination": "/mcfl.html" },
     { "source": "/seat", "destination": "/seat.html" },
     { "source": "/field", "destination": "/field.html" },
+    { "source": "/list", "destination": "/list.html" },
     { "source": "/reach", "destination": "/reach.html" },
     { "source": "/tg-swap", "destination": "/tg-swap.html" },
     { "source": "/tg", "destination": "/tg-swap.html" },

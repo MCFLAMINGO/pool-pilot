@@ -8,6 +8,7 @@
 const store = require('./store');
 const seats = require('./seats');
 const house = require('./house');
+const listings = require('./listings');
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -169,6 +170,21 @@ async function handler(req, res) {
       }
       const body = await readBody(req);
       const result = await seats.registerSeat(body);
+      return send(res, result.deduped ? 200 : 201, result);
+    }
+
+    if (req.method === 'GET' && (pathname === '/api/listings' || pathname === '/listings')) {
+      const board = await listings.getListings();
+      return send(res, 200, board);
+    }
+
+    if (req.method === 'POST' && (pathname === '/api/listings' || pathname === '/listings')) {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return send(res, 401, { ok: false, error: 'Unauthorized' });
+      }
+      const body = await readBody(req);
+      const result = await listings.registerListing(body);
       return send(res, result.deduped ? 200 : 201, result);
     }
 

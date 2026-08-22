@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Pool Pilot — Start your token</title>
 <meta name="description" content="Pool Pilot's start desk for serious creators: stage your assets, seed liquidity honestly, wire the rails. You're building a market, not winning a lottery. Platform fees in MCFL.">
@@ -93,6 +93,7 @@
     <div class="stage-grid">
       <div class="field"><label for="fName">Token name</label><input id="fName" data-testid="input-name" placeholder="e.g. Harbor"></div>
       <div class="field"><label for="fTicker">Ticker</label><input id="fTicker" data-testid="input-ticker" placeholder="e.g. HBR"></div>
+      <div class="field"><label for="fRhAddr">Robinhood token address</label><input id="fRhAddr" class="mono" data-testid="input-rh-addr" placeholder="0x… (for featured chip)" spellcheck="false" autocomplete="off"></div>
       <div class="field"><label for="fTagline">One-liner</label><input id="fTagline" data-testid="input-tagline" placeholder="What it is in one breath"></div>
       <div class="field"><label for="fUse">Why it exists (required to push)</label><input id="fUse" data-testid="input-use" placeholder="Who pays what, for what — or meme + dated product"></div>
       <div class="field full"><label for="fBlurb">Short blurb (X / TG)</label><input id="fBlurb" data-testid="input-blurb" placeholder="2–3 sentences"></div>
@@ -121,8 +122,8 @@
   </section>
 
   <section class="card" id="payCard" aria-label="Platform payments">
-    <h2>Platform payments — MCFL only</h2>
-    <p class="muted">Connect wallet on Robinhood Chain. Need MCFL first? Use <strong>Get MCFL</strong> (in-wallet swap or Uniswap).</p>
+    <h2>Platform payments</h2>
+    <p class="muted">Most desk fees are <strong>MCFL</strong>. The optional front-page featured chip is <strong>$500 in ETH or USDG</strong> — that payment buys MCFL for the treasury and auto-lists your chip.</p>
     <div id="payList"></div>
     <div id="payErr"></div>
     <div id="payReceipts" class="receipts"></div>
@@ -139,6 +140,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous"></script>
+<script src="js/partnerLib.js"></script>
 <script src="js/chainlib.js"></script>
 <script src="js/start.js"></script>
 </body>
