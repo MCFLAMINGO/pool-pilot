@@ -3,6 +3,7 @@
 const express = require('express');
 const store = require('./store');
 const seats = require('./seats');
+const house = require('./house');
 
 function clientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -27,7 +28,7 @@ function createApp() {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Partner-Key');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Partner-Key, X-Ops-Key');
     }
     if (req.method === 'OPTIONS') return res.status(204).end();
     next();
@@ -59,7 +60,13 @@ function createApp() {
   app.get('/api/stats', async (req, res) => {
     try {
       const ref = store.cleanRef(req.query.ref || '');
+      if (ref === store.HOUSE_REF) {
+        return res.status(404).json({ ok: false, error: 'Not found' });
+      }
       const stats = await store.statsForRef(ref, req.query.limit);
+      if (!ref && Array.isArray(stats.rows)) {
+        stats.rows = stats.rows.filter((r) => !store.isHouseRef(r.ref));
+      }
       res.json({ ok: true, ...stats });
     } catch (e) {
       res.status(500).json({ ok: false, error: String(e && e.message) });
@@ -68,10 +75,23 @@ function createApp() {
 
   app.get('/api/stats/:ref', async (req, res) => {
     try {
+      if (store.isHouseRef(req.params.ref) && store.cleanRef(req.params.ref) === store.HOUSE_REF) {
+        return res.status(404).json({ ok: false, error: 'Not found' });
+      }
       const stats = await store.statsForRef(req.params.ref, req.query.limit);
       res.json({ ok: true, ...stats });
     } catch (e) {
       res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/ops/reach', async (req, res) => {
+    try {
+      house.authorizeOps(req);
+      const report = await house.getReachReport();
+      res.json(report);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
     }
   });
 

@@ -7,6 +7,7 @@
 
 const store = require('./store');
 const seats = require('./seats');
+const house = require('./house');
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -27,7 +28,7 @@ function cors(req, res) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Partner-Key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Partner-Key, X-Ops-Key');
   }
 }
 
@@ -97,6 +98,16 @@ async function handler(req, res) {
       return send(res, result.deduped ? 200 : 201, result);
     }
 
+    if (req.method === 'GET' && (pathname === '/api/ops/reach' || pathname === '/ops/reach')) {
+      const u = new URL(req.url || '/', 'http://local');
+      house.authorizeOps({
+        headers: req.headers,
+        query: Object.fromEntries(u.searchParams.entries())
+      });
+      const report = await house.getReachReport();
+      return send(res, 200, report);
+    }
+
     if (
       req.method === 'GET' &&
       (pathname === '/api/stats' ||
@@ -108,7 +119,13 @@ async function handler(req, res) {
       let ref = u.searchParams.get('ref') || '';
       const m = pathname.match(/\/stats\/([^/]+)$/);
       if (m) ref = decodeURIComponent(m[1]);
+      if (store.cleanRef(ref) === store.HOUSE_REF) {
+        return send(res, 404, { ok: false, error: 'Not found' });
+      }
       const stats = await store.statsForRef(ref, u.searchParams.get('limit'));
+      if (!store.cleanRef(ref) && Array.isArray(stats.rows)) {
+        stats.rows = stats.rows.filter((r) => !store.isHouseRef(r.ref));
+      }
       return send(res, 200, { ok: true, ...stats });
     }
 

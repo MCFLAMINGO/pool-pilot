@@ -377,6 +377,19 @@ function withSharesAll(seats, volMap, monthMap) {
   return r1.concat(r2).sort((a, b) => b.workUsd - a.workUsd || Number(a.round) - Number(b.round));
 }
 
+function partnerVolTotal(volMap) {
+  let n = 0;
+  Object.keys(volMap || {}).forEach((k) => {
+    if (eventsStore.isHouseRef(k)) return;
+    n += volMap[k] || 0;
+  });
+  return n;
+}
+
+function filterPublicBoard(rows) {
+  return (rows || []).filter((s) => s && !eventsStore.isHouseRef(s.ref));
+}
+
 async function getBoard(opts) {
   opts = opts || {};
   const seats = await loadAllSeats();
@@ -384,6 +397,16 @@ async function getBoard(opts) {
   const volMap = maps.all;
   const monthMap = maps.month;
   const roundState = computeRoundState(seats, volMap);
+  // Public attributed total = partners only (house is ops-private).
+  roundState.totalAttributedVolumeUsd = partnerVolTotal(volMap);
+  roundState.advance = {
+    ...roundState.advance,
+    // Round advance still sees total flow including natural reach.
+    volumeUsd: Object.keys(volMap).reduce((a, k) => a + (volMap[k] || 0), 0),
+    partnerVolumeUsd: partnerVolTotal(volMap),
+    houseVolumeUsd: (volMap[eventsStore.HOUSE_REF] || 0) + (volMap[''] || 0)
+  };
+
   const wantRound = opts.round;
   let board;
   if (wantRound === 'all' || wantRound == null || wantRound === '' || String(wantRound).toLowerCase() === 'all') {
@@ -391,27 +414,31 @@ async function getBoard(opts) {
   } else {
     board = withShares(seats, volMap, monthMap, Number(wantRound));
   }
-  const roundBoard = withShares(seats, volMap, monthMap, roundState.activeRound);
+  board = filterPublicBoard(board);
+  const roundBoard = filterPublicBoard(withShares(seats, volMap, monthMap, roundState.activeRound));
   let mine = null;
   const ref = eventsStore.cleanRef(opts.ref || '');
   const wallet = cleanWallet(opts.wallet || '');
-  if (ref || wallet) {
+  // Never surface the reserved house ref as a partner "mine" lane.
+  if ((ref || wallet) && ref !== eventsStore.HOUSE_REF) {
     mine =
       board.find((s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)) ||
-      withSharesAll(seats, volMap, monthMap).find(
+      filterPublicBoard(withSharesAll(seats, volMap, monthMap)).find(
         (s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)
       ) ||
       null;
   }
   const byRound = { 1: 0, 2: 0 };
   seats.forEach((s) => {
+    if (eventsStore.isHouseRef(s.ref)) return;
     const r = Number(s.round) === 2 ? 2 : 1;
     byRound[r] += 1;
   });
+  const publicSeats = seats.filter((s) => !eventsStore.isHouseRef(s.ref));
   return {
     ok: true,
     ...roundState,
-    seatsTakenAll: seats.length,
+    seatsTakenAll: publicSeats.length,
     seatsByRound: byRound,
     stages: STAGES,
     skimBps: SKIM_BPS,
@@ -429,9 +456,11 @@ async function getBoard(opts) {
     roundBoard,
     mine,
     attribution: {
-      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref.',
+      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref. No ref → invisible house (ops-only).',
       autoBindWallet: true,
-      skimBps: SKIM_BPS
+      skimBps: SKIM_BPS,
+      houseRef: eventsStore.HOUSE_REF,
+      housePublic: false
     },
     store: usePostgres() ? 'postgres' : 'file'
   };
@@ -458,6 +487,11 @@ async function registerSeat(input) {
   const hash = cleanHash(input && input.hash);
   if (!ref) {
     const err = new Error('Partner ref required');
+    err.status = 400;
+    throw err;
+  }
+  if (eventsStore.isHouseRef(ref)) {
+    const err = new Error('Reserved ref');
     err.status = 400;
     throw err;
   }
@@ -527,5 +561,6 @@ module.exports = {
   getBoard,
   registerSeat,
   cleanWallet,
-  pathForSeat
+  pathForSeat,
+  volumeMaps
 };

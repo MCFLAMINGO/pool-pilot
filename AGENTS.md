@@ -65,8 +65,11 @@ npm run server          # Express on :8787 (PORT / API_PORT)
 # File store: data/partner-events.json + data/partner-seats.json
 # Postgres when DATABASE_URL / POSTGRES_URL / LOCAL_INTEL_DB_URL is set
 # Optional write gate: PARTNER_INGEST_KEY → clients send X-Partner-Key
+# Ops house view: HOUSE_VIEW_KEY (or PARTNER_INGEST_KEY) → GET /api/ops/reach + /reach
 ```
 
 Seats (`/seat`): Round 1 **$500 × 12 seats**; Round 2 **$1k–$5k** when R1 fills / raise / volume. Path: Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M). Monthly pay = stage bonus + 100% of attributed 0.30% skim. ETH stays in the user’s buy-wall NFT; bonuses from treasury partner incentive pool.
+
+Invisible house ref `poolpilot`: swaps with **no** partner ref credit natural reach. Hidden from public Live field / `/api/stats/poolpilot`. Ops-only at `/reach` (noindex) with `HOUSE_VIEW_KEY`. Do **not** buy a public seat for the desk — house is not a Round‑1 ticket.
 
 On Vercel, `api/[...path].js` serves the same routes under `/api/*` (same origin as the static site). Locally, serve the static site on :3000 and the API on :8787 — `partnerLib` points localhost pages at `http://127.0.0.1:8787`.
