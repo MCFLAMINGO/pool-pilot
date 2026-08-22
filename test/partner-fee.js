@@ -28,6 +28,7 @@ check('partnerFee flag on tx', /partnerFee: true/.test(src));
 check('treasury still default recipient', /feeRecipient: partnerWallet \|\| CFG\.TREASURY/.test(src));
 
 const lib = fs.readFileSync(path.join(__dirname, '..', 'js', 'partnerLib.js'), 'utf8');
+check('skips until earner', /path\.earner/.test(lib));
 check('resolveSeatWallet export', /resolveSeatWallet:\s*resolveSeatWallet/.test(lib));
 check('skips house ref', /ref === 'poolpilot'/.test(lib));
 

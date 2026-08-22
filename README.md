@@ -59,13 +59,13 @@ npm run test:partner-api
 
 1. Round 1: **$500 × 12 seats** → user-owned Uniswap v3 buy wall  
 2. **Path / milestones:** Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M)  
-3. **Cash:** attributed volume × **0.30%** auto-transfers to the seat wallet on each desk swap (no claim)  
-4. Cold / no-ref volume still clears to treasury buy-wall LP  
+3. **Earner @ $25k (Ignite):** then attributed **0.30%** auto-transfers to the seat wallet; before that → treasury LP  
+4. **Jockey field** [`/field`](https://poolpilot.xyz/field) — 12–15 lanes side by side (progression + attribution)  
 5. Round 2 ($1k–$5k) when R1 fills / raise / volume clears the bar  
 
 ```bash
 npm run test:seats-api
-node test/partner-fee.js
+npm run test:partner-fee
 ```
 
 

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Pool Pilot jockey field — every seat side by side. Progression, attribution, Earner unlock.">
+<meta property="og:title" content="Jockey field — Pool Pilot">
+<meta property="og:description" content="12–15 seats racing volume milestones. Earner unlock at Ignite — then 0.30% skim to wallet.">
+<meta property="og:url" content="https://poolpilot.xyz/field">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://poolpilot.xyz/field">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/bd.css">
+<link rel="stylesheet" href="css/seat.css">
+<link rel="stylesheet" href="css/field.css">
+</head>
+<body class="field-body">
+<div class="shell field-shell">
+  <header class="top">
+    <a class="logo" href="/" style="text-decoration:none;color:inherit">
+      <img src="logo.png" alt="Pool Pilot" width="36" height="36">
+      <div>
+        <h1>Pool Pilot</h1>
+        <span class="sub">Jockey field</span>
+      </div>
+    </a>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" href="/seat" data-testid="link-field-seat">Buy a seat</a>
+    <button type="button" class="btn btn-ghost" id="refreshBtn" data-testid="button-field-refresh">Refresh</button>
+  </header>
+
+  <section class="field-hero" data-testid="card-field-hero">
+    <p class="bd-kicker" id="fieldKicker">Round 1 · 12 lanes</p>
+    <h2>Jockeys side by side</h2>
+    <p class="bd-lead">Every seat on the track. Volume drives the rail. <strong>Earner</strong> unlocks at Ignite ($25k attributed) — then 0.30% skim auto-sends to their wallet. Before that, skim clears to treasury LP.</p>
+    <div class="field-legend" aria-hidden="true">
+      <span><i class="dot seated"></i> Seated</span>
+      <span><i class="dot earner"></i> Earner</span>
+      <span><i class="dot open"></i> Open gate</span>
+    </div>
+    <p class="bd-lead mono" id="fieldMeta" data-testid="text-field-meta"></p>
+  </section>
+
+  <div class="field-track" id="fieldTrack" data-testid="field-track">
+    <p class="bd-lead">Loading field…</p>
+  </div>
+
+  <section class="card field-foot">
+    <p class="bd-lead" style="margin:0">Want a lane? <a href="/seat">Buy a $500 seat</a> · share your <span class="mono">ref</span> · climb the rail.</p>
+  </section>
+</div>
+<script src="js/partnerLib.js"></script>
+<script src="js/field.js"></script>
+</body>
+</html>
