@@ -1,0 +1,90 @@
+/* Shared BD / partner page styles */
+.bd-lead { font-size: var(--text-sm); color: var(--text-muted); margin: 0 0 var(--space-4); line-height: 1.45; }
+.bd-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+@media (max-width: 720px) {
+  .bd-form { grid-template-columns: 1fr; }
+}
+.bd-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.bd-form input {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+.bd-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-3) 0; }
+.bd-out { margin-top: var(--space-4); }
+.bd-qr-row { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-4); }
+.bd-qr-row img { border-radius: 12px; background: #fff; padding: 8px; border: 1px solid var(--border); }
+.bd-kicker { font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); margin: 0 0 4px; }
+.bd-url { font-size: 0.85rem; word-break: break-all; margin: 0; color: var(--text); }
+.bd-link-row {
+  display: flex; gap: var(--space-3); justify-content: space-between; align-items: flex-start;
+  padding: var(--space-3) 0; border-bottom: 1px solid var(--border);
+}
+.bd-textarea {
+  width: 100%; box-sizing: border-box; font: 500 0.85rem/1.4 var(--font-mono);
+  padding: 12px; border-radius: 12px; border: 1.5px solid var(--border);
+  background: var(--surface); color: var(--text); resize: vertical;
+}
+.bd-check { list-style: none; padding: 0; margin: var(--space-3) 0 0; }
+.bd-check li {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm); color: var(--text-muted);
+}
+.bd-check .mark {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; border: 1.5px solid var(--border);
+}
+.bd-check li.ok .mark { background: var(--green-soft, #e6f6ec); border-color: transparent; color: #1a7a3c; }
+.bd-check li.warn .mark { background: var(--yellow-soft, #fff6e0); border-color: transparent; }
+.bd-check li.bad .mark { background: var(--red-soft, #fde8e8); border-color: transparent; }
+.bd-stat-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+@media (max-width: 720px) { .bd-stat-grid { grid-template-columns: 1fr; } }
+.bd-stat {
+  padding: var(--space-3); border: 1.5px solid var(--border); border-radius: 14px;
+}
+.bd-stat .n { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; }
+.bd-stat .l { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+.bd-press-grid { display: flex; flex-direction: column; gap: 0; }
+.bd-press-grid a {
+  display: block; text-decoration: none; color: inherit;
+  padding: var(--space-3) 0; border-bottom: 1px solid var(--border);
+}
+.bd-press-grid a strong { display: block; margin-bottom: 2px; }
+.bd-press-grid a span { font-size: var(--text-sm); color: var(--text-muted); }
+.embed-shell {
+  margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box;
+  background: linear-gradient(160deg, #fff7f2 0%, #f3ebe6 45%, #efe4ef 100%);
+  font-family: Satoshi, system-ui, sans-serif;
+}
+.embed-card {
+  width: 100%; max-width: 340px; background: #fff; border-radius: 18px;
+  padding: 18px 18px 16px; border: 1.5px solid #e4dcd7;
+}
+.embed-card h1 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+.embed-card p { margin: 0 0 14px; font-size: 0.9rem; color: #6b625c; line-height: 1.4; }
+.embed-card .btn {
+  display: block; text-align: center; text-decoration: none; font-weight: 700;
+  padding: 12px 14px; border-radius: 12px; background: #e0447c; color: #fff;
+}
+.embed-card .sub { display: block; margin-top: 10px; text-align: center; font-size: 0.78rem; color: #8a817a; text-decoration: none; }

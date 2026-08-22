@@ -30,7 +30,7 @@
     var i = 0;
     if (parts[0] && parts[0].toLowerCase() === 'ref' && parts[1]) {
       out.ref = parts[1];
-      try { sessionStorage.setItem('pp_ref', parts[1]); } catch (e) { /* ignore */ }
+      try { sessionStorage.setItem('pp_ref', parts[1]); localStorage.setItem('pp_ref', parts[1]); } catch (e) { /* ignore */ }
       i = 2;
     }
     var head = (parts[i] || '').toUpperCase();

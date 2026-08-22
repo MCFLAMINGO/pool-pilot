@@ -5,13 +5,18 @@
     { "source": "/start", "destination": "/start.html" },
     { "source": "/swap", "destination": "/swap.html" },
     { "source": "/arrive", "destination": "/arrive.html" },
+    { "source": "/pack", "destination": "/pack.html" },
+    { "source": "/partner", "destination": "/partner.html" },
+    { "source": "/case", "destination": "/case.html" },
+    { "source": "/embed", "destination": "/embed.html" },
+    { "source": "/press", "destination": "/press.html" },
     { "source": "/tg-swap", "destination": "/tg-swap.html" },
     { "source": "/tg", "destination": "/tg-swap.html" },
     { "source": "/tg-ok", "destination": "/tg-ok.html" }
   ],
   "headers": [
     {
-      "source": "/((?!tg-swap\\.html$|tg-swap$|tg$|tg-ok\\.html$|tg-ok$).*)",
+      "source": "/((?!tg-swap\\.html$|tg-swap$|tg$|tg-ok\\.html$|tg-ok$|embed\\.html$|embed$).*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
@@ -27,6 +32,15 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/(embed|embed.html)",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "frame-ancestors *;" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
       ]
     }
   ]
