@@ -60,6 +60,8 @@
       seen.push(provider);
       out.push({ provider: provider, name: name || 'Wallet' });
     }
+    // EIP-6963 (Rabby / MetaMask multi-wallet)
+    eip6963Wallets.forEach(function (w) { add(w.provider, w.name); });
     var ethereum = window.ethereum;
     if (ethereum) {
       if (ethereum.providers && ethereum.providers.length) {
@@ -68,10 +70,33 @@
         });
       } else add(ethereum, ethereum.isRabby ? 'Rabby' : ethereum.isMetaMask ? 'MetaMask' : 'Injected');
     }
+    // Prefer Rabby when several are injected
+    out.sort(function (a, b) {
+      var ar = /rabby/i.test(a.name) ? 0 : 1;
+      var br = /rabby/i.test(b.name) ? 0 : 1;
+      return ar - br;
+    });
     return out;
   }
 
+  var eip6963Wallets = [];
+  window.addEventListener('eip6963:announceProvider', function (e) {
+    var d = e && e.detail;
+    if (!d || !d.provider) return;
+    for (var i = 0; i < eip6963Wallets.length; i++) {
+      if (eip6963Wallets[i].provider === d.provider) return;
+    }
+    eip6963Wallets.push({
+      provider: d.provider,
+      name: (d.info && d.info.name) || 'Wallet'
+    });
+  });
+  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+
   function bindProvider(raw, addr) {
+    if (typeof ethers === 'undefined') {
+      return Promise.reject(new Error('Wallet library failed to load — hard refresh the page.'));
+    }
     var web3 = new ethers.providers.Web3Provider(raw, 'any');
     S.wallet = { addr: addr, provider: web3, chainOk: false };
     return web3.send('eth_chainId', []).then(function (id) {
@@ -110,15 +135,24 @@
   }
 
   function connect() {
+    try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (e) { /* ignore */ }
+    if (typeof ethers === 'undefined') {
+      showErr('Wallet library blocked — hard refresh (Cmd+Shift+R). If it keeps failing, try /swap Connect first.');
+      return Promise.reject(new Error('ethers missing'));
+    }
     var list = discoverProviders();
     if (!list.length) {
       showErr('No wallet found. Install MetaMask or Rabby, then refresh.');
       return Promise.reject(new Error('No wallet'));
     }
     var raw = list[0].provider;
+    $('walletBtn').textContent = 'Connecting…';
     return raw.request({ method: 'eth_requestAccounts' }).then(function (accs) {
       if (!accs || !accs[0]) throw new Error('No account returned.');
       return bindProvider(raw, accs[0]);
+    }).catch(function (e) {
+      if (!S.wallet.addr) $('walletBtn').textContent = 'Connect';
+      throw e;
     });
   }
 
@@ -126,9 +160,10 @@
     if (S.wallet.addr) {
       S.wallet = { addr: null, provider: null, chainOk: false };
       $('walletBtn').textContent = 'Connect';
+      showErr('');
       return;
     }
-    connect().catch(function (e) { showErr((e && e.message) || e); });
+    connect().catch(function (e) { showErr((e && e.message) || String(e)); });
   });
 
   function renderPathLegend(board) {
