@@ -137,6 +137,8 @@ async function main() {
     check('community has PEPE', sandbox.PoolPilotTokens.communityTokens().some((t) => t.symbol === 'PEPE'));
     check('confirm html', /Confirmed/.test(sandbox.PoolPilotTokens.confirmHtml(sandbox.PoolPilotTokens.bySymbol('MCFL'))));
     check('chip has img', /chip-img/.test(sandbox.PoolPilotTokens.chipHtml(sandbox.PoolPilotTokens.bySymbol('ANSEM'))));
+    check('mcfl real icon', sandbox.PoolPilotTokens.iconUrl(sandbox.PoolPilotTokens.bySymbol('MCFL')) === 'icons/mcfl.png');
+    check('letter fallback', /^data:image\/svg/.test(sandbox.PoolPilotTokens.iconUrl(sandbox.PoolPilotTokens.bySymbol('WIENERAI'))));
   } finally {
     await new Promise((r) => server.close(r));
     restore();
