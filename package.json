@@ -17,6 +17,7 @@
     "test:swap-quote": "node test/swap-quote.js",
     "test:partner-api": "node test/partner-api.js",
     "test:seats-api": "node test/seats-api.js",
+    "test:seat-protect": "node test/seat-protect.js",
     "outreach": "node agents/outreach/run.js",
     "outreach:tick": "node agents/outreach/run.js --tick",
     "outreach:live": "node agents/outreach/run.js --tick --live",

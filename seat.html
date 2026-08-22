@@ -72,9 +72,23 @@
     <p class="bd-lead" id="incentiveNote" style="margin-top:var(--space-3)"></p>
   </section>
 
+  <section class="card" data-testid="card-seat-protect">
+    <h3>Automatic protections</h3>
+    <p class="bd-lead">Built into every seat mint — you don’t configure this.</p>
+    <ul class="bd-check" id="protectList" data-testid="seat-protect-list">
+      <li class="ok"><span class="mark">✓</span><div><strong>Below-spot buy wall</strong> — not tight LP at spot. Buys do not spend your wall; dumps fill it and you receive MCFL.</div></li>
+      <li class="ok"><span class="mark">✓</span><div><strong>3-band ladder</strong> — your ETH is split across wider ranges so one dump cannot fill 100% at a single print.</div></li>
+      <li class="ok"><span class="mark">✓</span><div><strong>Depth guard</strong> — oversized deposits vs live pool ETH are auto-capped; thin sell-side shows a warning.</div></li>
+      <li class="ok"><span class="mark">✓</span><div><strong>Dual deepen</strong> — if you already hold MCFL (bridge from Solana via <a href="/mcfl">/mcfl</a>), we also mint a sell wall above spot. We never market-buy MCFL on RH to seed.</div></li>
+      <li class="ok"><span class="mark">✓</span><div><strong>Exit anytime</strong> — you own the Uniswap NFT(s). Decrease liquidity from your wallet / explorer.</div></li>
+    </ul>
+    <p class="bd-lead mono" id="poolDepthLine" data-testid="text-seat-depth">Pool depth: …</p>
+    <div id="protectAlerts" class="seat-alerts" data-testid="seat-protect-alerts"></div>
+  </section>
+
   <section class="card" data-testid="card-seat-buy">
     <h3>Claim your seat</h3>
-    <p class="bd-lead">Fixed <strong>$500</strong> ticket this round. One signature. Nothing custodied.</p>
+    <p class="bd-lead">Fixed <strong>$500</strong> ticket this round. Automatic ladder (+ optional MCFL sell wall). Nothing custodied.</p>
     <div class="bd-form">
       <label>Partner ref <input id="ref" placeholder="yourname" data-testid="input-seat-ref"></label>
       <label>Seat price (USD) <input id="usd" type="number" inputmode="decimal" value="500" readonly data-testid="input-seat-usd"></label>
@@ -108,11 +122,15 @@
         <div class="seat-where-row"><span class="k">Buy-in</span><span class="v" id="mineBuyin">—</span></div>
         <div class="seat-where-row"><span class="k">Pool</span><span class="v mono" id="minePool">—</span></div>
         <div class="seat-where-row"><span class="k">Mint tx</span><span class="v" id="mineTx">—</span></div>
-        <div class="seat-where-row"><span class="k">Ownership</span><span class="v">Your wallet owns the Uniswap v3 NFT — not Pool Pilot.</span></div>
+        <div class="seat-where-row"><span class="k">Ownership</span><span class="v">Your wallet owns the Uniswap v3 NFT(s) — not Pool Pilot.</span></div>
+        <div class="seat-where-row"><span class="k">Withdraw</span><span class="v" id="mineWithdraw">—</span></div>
       </div>
+      <p class="bd-lead" id="mineStageAdvice" data-testid="text-seat-stage-advice"></p>
       <div class="bd-actions">
         <a class="btn btn-primary" id="minePack" href="/pack">Open partner pack</a>
         <a class="btn btn-ghost" id="minePartner" href="/partner">Attributed stats</a>
+        <a class="btn btn-ghost" id="mineMcfl" href="/mcfl">Bridge MCFL (Sol→RH)</a>
+        <a class="btn btn-ghost" id="mineWithdrawBtn" href="#" target="_blank" rel="noopener">Withdraw / positions</a>
       </div>
     </div>
   </section>

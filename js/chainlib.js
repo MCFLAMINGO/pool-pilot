@@ -694,15 +694,17 @@
     });
   }
 
-  // ETH → WETH-only buy wall (5%–30% below spot). Single tx: mint + refundETH.
-  // recipient owns the Uniswap v3 NFT — treasury for protocol fees, wallet for seats.
-  function buyWallTx(info, tick, ethIn, recipient, label) {
+  // ETH → WETH-only buy wall below spot. recipient owns the NFT.
+  // topMult/bottomMult = token price vs spot (e.g. 0.95 → 0.70 = 5%–30% below).
+  function buyWallTx(info, tick, ethIn, recipient, label, topMult, bottomMult) {
     if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Buy wall needs a recipient.');
+    topMult = topMult == null ? 0.95 : topMult;
+    bottomMult = bottomMult == null ? 0.70 : bottomMult;
     var sp = info.spacing;
-    var offTop = multToTickOffset(0.95, info.tokenIsToken1);
-    var offBot = multToTickOffset(0.70, info.tokenIsToken1);
+    var offTop = multToTickOffset(topMult, info.tokenIsToken1);
+    var offBot = multToTickOffset(bottomMult, info.tokenIsToken1);
     var lo, hi;
-    if (info.tokenIsToken1) { // bids ABOVE current tick
+    if (info.tokenIsToken1) { // WETH is token0 — bids ABOVE current tick
       lo = alignTick(tick + offTop, sp, true);
       hi = alignTick(tick + offBot, sp, false);
       if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true);
@@ -722,28 +724,134 @@
       amount0Min: 0, amount1Min: 0,
       recipient: recipient, deadline: deadline()
     };
-    var calls = [
-      iNPM.encodeFunctionData('mint', [mintParams]),
-      iNPM.encodeFunctionData('refundETH', [])
-    ];
     return {
       label: label || ('ETH → buy-side LP'),
       to: CFG.NPM,
       value: ethIn.toHexString(),
-      data: iNPM.encodeFunctionData('multicall', [calls]),
+      data: iNPM.encodeFunctionData('mint', [mintParams]),
       mintParams: mintParams,
       range: [lo, hi],
-      pool: info.pool || info.poolAddress || null
+      kind: 'buywall',
+      topMult: topMult,
+      bottomMult: bottomMult
     };
   }
 
+  /** Token-only sell wall ABOVE spot (5%–30% by default). Fills when buyers lift offers. */
+  function sellWallTx(info, tick, tokenAmt, recipient, label, nearMult, farMult) {
+    if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Sell wall needs a recipient.');
+    if (!tokenAmt || !tokenAmt.gt || !tokenAmt.gt(0)) throw new Error('Sell wall needs token amount.');
+    nearMult = nearMult == null ? 1.05 : nearMult;
+    farMult = farMult == null ? 1.30 : farMult;
+    var sp = info.spacing;
+    var offNear = multToTickOffset(nearMult, info.tokenIsToken1);
+    var offFar = multToTickOffset(farMult, info.tokenIsToken1);
+    var lo, hi;
+    if (info.tokenIsToken1) {
+      // Higher token price → lower tick. Range entirely below spot tick.
+      hi = alignTick(tick + offNear, sp, false);
+      lo = alignTick(tick + offFar, sp, true);
+      if (hi >= tick - sp) hi = alignTick(tick - sp - 1, sp, false);
+      if (lo >= hi) lo = hi - sp;
+    } else {
+      // Higher token price → higher tick. Range entirely above spot.
+      lo = alignTick(tick + offNear, sp, true);
+      hi = alignTick(tick + offFar, sp, false);
+      if (lo <= tick + sp) lo = alignTick(tick + sp + 1, sp, true);
+      if (hi <= lo) hi = lo + sp;
+    }
+    var amount0 = info.tokenIsToken1 ? ethers.constants.Zero : tokenAmt;
+    var amount1 = info.tokenIsToken1 ? tokenAmt : ethers.constants.Zero;
+    var mintParams = {
+      token0: info.token0, token1: info.token1, fee: info.fee,
+      tickLower: lo, tickUpper: hi,
+      amount0Desired: amount0, amount1Desired: amount1,
+      amount0Min: 0, amount1Min: 0,
+      recipient: recipient, deadline: deadline()
+    };
+    return {
+      label: label || ('Token → sell-side LP'),
+      to: CFG.NPM,
+      value: '0x0',
+      data: iNPM.encodeFunctionData('mint', [mintParams]),
+      mintParams: mintParams,
+      range: [lo, hi],
+      kind: 'sellwall',
+      nearMult: nearMult,
+      farMult: farMult
+    };
+  }
+
+  /** Auto ladder: 3 buy-wall bands so one dump cannot fill 100% at one print. */
+  var SEAT_BUY_LADDER = [
+    { top: 0.95, bot: 0.88, weight: 0.34 },
+    { top: 0.88, bot: 0.78, weight: 0.33 },
+    { top: 0.78, bot: 0.62, weight: 0.33 }
+  ];
+
+  function ladderBuyWallTxs(info, tick, ethIn, recipient, usdLabel) {
+    var txs = [];
+    var ranges = [];
+    var remaining = ethIn;
+    SEAT_BUY_LADDER.forEach(function (band, i) {
+      var slice = i === SEAT_BUY_LADDER.length - 1
+        ? remaining
+        : ethIn.mul(Math.round(band.weight * 1000)).div(1000);
+      if (slice.gt(remaining)) slice = remaining;
+      remaining = remaining.sub(slice);
+      if (!slice.gt(0)) return;
+      var tx = buyWallTx(
+        info,
+        tick,
+        slice,
+        recipient,
+        'Buy wall ' + (i + 1) + '/3 — ' + Math.round(band.bot * 100) + '–' + Math.round(band.top * 100) + '% of spot',
+        band.top,
+        band.bot
+      );
+      txs.push(tx);
+      ranges.push({ band: i + 1, topMult: band.top, bottomMult: band.bot, range: tx.range, eth: parseFloat(ethers.utils.formatEther(slice)) });
+    });
+    // Single payable multicall: all mints + refundETH (automatic, one signature for ETH legs)
+    var calls = txs.map(function (t) { return t.data; });
+    calls.push(iNPM.encodeFunctionData('refundETH', []));
+    var bundled = {
+      label: 'Seat buy-wall ladder — $' + usdLabel + ' ETH across 3 bands (you own the NFTs)',
+      to: CFG.NPM,
+      value: ethIn.toHexString(),
+      data: iNPM.encodeFunctionData('multicall', [calls]),
+      kind: 'buywall-ladder',
+      ranges: ranges,
+      legs: txs
+    };
+    return { bundled: bundled, ranges: ranges, legs: txs };
+  }
+
   function treasuryBuyWallTx(info, tick, ethIn, label) {
-    return buyWallTx(info, tick, ethIn, CFG.TREASURY, label || 'ETH → MCFL buy-side LP (treasury)');
+    var tx = buyWallTx(info, tick, ethIn, CFG.TREASURY, label || 'ETH → MCFL buy-side LP (treasury)');
+    // Keep fee path as single mint+refund multicall
+    var calls = [
+      tx.data,
+      iNPM.encodeFunctionData('refundETH', [])
+    ];
+    return {
+      label: tx.label,
+      to: CFG.NPM,
+      value: ethIn.toHexString(),
+      data: iNPM.encodeFunctionData('multicall', [calls]),
+      mintParams: tx.mintParams,
+      range: tx.range
+    };
   }
 
   /**
-   * Partner seat buy-in: user-owned buy wall (default MCFL pool).
-   * opts: { usdAmount, walletAddr, token?, ethUsd? }
+   * Partner seat buy-in (automatic protections):
+   * - ETH → 3-band buy wall below spot (buys do not spend it; dumps fill → you get MCFL)
+   * - Cap/warn vs live pool depth
+   * - If wallet holds MCFL (e.g. bridged from Solana), auto-add a sell wall above spot
+   * - Never market-buys MCFL on RH to seed the seat (that would empty the thin book)
+   *
+   * opts: { usdAmount, walletAddr, token?, ethUsd?, dual? } dual default true when MCFL bal > 0
    */
   function planSeatDeposit(provider, opts) {
     opts = opts || {};
@@ -766,28 +874,128 @@
       var ethIn = ethers.utils.parseEther(ethF.toFixed(8));
       return discoverPool(provider, token).then(function (info) {
         return readState(provider, info, ethUsd).then(function (state) {
-          var tx = buyWallTx(
-            info,
-            state.tick,
-            ethIn,
-            wallet,
-            'Seat buy-in — ' + usd.toFixed(0) + ' USD ETH into your buy wall'
-          );
-          return {
-            kind: 'seat',
-            usd: usd,
-            ethUsd: ethUsd,
-            ethIn: ethIn,
-            ethInF: parseFloat(ethers.utils.formatEther(ethIn)),
-            token: token.toLowerCase(),
-            symbol: info.symbol || 'TOKEN',
-            pool: info.pool,
-            tick: state.tick,
-            range: tx.range,
-            wallet: wallet.toLowerCase(),
-            txs: [tx],
-            explorerPool: CFG.EXPLORER + '/address/' + info.pool
-          };
+          var tokenCtr = new ethers.Contract(info.token, ERC20_ABI, provider);
+          return tokenCtr.balanceOf(wallet).then(function (tokenBal) {
+            var wethUsd = state.buySideUsd != null ? state.buySideUsd : (state.buySideEth || 0) * ethUsd;
+            var tokenUsd = state.sellSideUsd != null ? state.sellSideUsd : 0;
+            var tokenBalF = parseFloat(ethers.utils.formatUnits(tokenBal, info.decimals));
+            var tokenBalUsd = tokenBalF * (state.priceUsd || 0);
+
+            var warnings = [];
+            var advice = [];
+            var capped = false;
+            var requestedUsd = usd;
+
+            // Hard cap only when deposit would dwarf the book (>2.5× pool ETH, and above $500).
+            // Founding $500 seats are allowed even when the pool is thinner — they deepen it.
+            var CAP_MULT = 2.5;
+            var depthCapUsd = Math.max(500, wethUsd * CAP_MULT);
+            var ethForBuy = ethIn;
+            var usdEffective = usd;
+            if (usd > depthCapUsd + 1) {
+              capped = true;
+              usdEffective = Math.floor(depthCapUsd);
+              ethForBuy = ethers.utils.parseEther((usdEffective / ethUsd).toFixed(8));
+              warnings.push(
+                'Seat auto-capped to ~$' + usdEffective + ' (≤ live pool ETH depth ~$' +
+                Math.round(wethUsd) + '). Rest would over-concentrate dump risk.'
+              );
+            }
+
+            if (tokenUsd < Math.max(50, usdEffective * 0.25)) {
+              warnings.push(
+                'Sell-side is thin (~$' + Math.round(tokenUsd) + ' MCFL in pool). A small buy can clear most offers. Bridge MCFL from Solana (LayerZero OFT /poolpilot.xyz/mcfl) — do not market-buy on RH to seed.'
+              );
+            }
+            if (usdEffective > wethUsd * 0.75) {
+              advice.push(
+                'Your seat is a large share of pool ETH. The 3-band ladder spreads dump fills; withdraw anytime.'
+              );
+            }
+            advice.push('Buys do not spend your buy wall. Dumps fill it — you receive MCFL.');
+            advice.push('Exit: open your NFT positions on the position manager and decrease liquidity anytime — you own them.');
+
+            var wantDual = opts.dual !== false && tokenBalUsd >= 25;
+            var txs = [];
+            var dual = null;
+
+            if (wantDual) {
+              var targetTokenUsd = Math.min(tokenBalUsd, usdEffective);
+              var tokenAmtF = targetTokenUsd / (state.priceUsd || 1);
+              if (tokenAmtF > tokenBalF) tokenAmtF = tokenBalF;
+              var tokenAmt = ethers.utils.parseUnits(
+                tokenAmtF.toFixed(Math.min(info.decimals, 8)),
+                info.decimals
+              );
+              if (tokenAmt.gt(0)) {
+                txs.push({
+                  label: 'Approve ' + (info.symbol || 'TOKEN') + ' for sell-wall mint',
+                  to: info.token,
+                  value: '0x0',
+                  data: iERC20.encodeFunctionData('approve', [CFG.NPM, tokenAmt])
+                });
+                var sell = sellWallTx(
+                  info,
+                  state.tick,
+                  tokenAmt,
+                  wallet,
+                  'Sell wall — your ' + (info.symbol || 'TOKEN') + ' above spot (deepens offers)'
+                );
+                txs.push(sell);
+                dual = {
+                  tokenAmtF: parseFloat(ethers.utils.formatUnits(tokenAmt, info.decimals)),
+                  tokenUsd: targetTokenUsd,
+                  range: sell.range
+                };
+                advice.push('Detected ' + (info.symbol || 'TOKEN') + ' in wallet — auto-added a sell wall above spot so both sides deepen.');
+              }
+            } else if (tokenUsd < 100) {
+              advice.push(
+                'To deepen both sides: bridge MCFL from Solana at /mcfl, then buy the seat again — we auto-mint a sell wall. Do not buy MCFL on RH just to LP.'
+              );
+            }
+
+            var ladder = ladderBuyWallTxs(info, state.tick, ethForBuy, wallet, usdEffective.toFixed(0));
+            txs.push(ladder.bundled);
+
+            return {
+              kind: 'seat',
+              mode: dual ? 'dual-ladder' : 'buywall-ladder',
+              usd: usdEffective,
+              usdRequested: requestedUsd,
+              capped: capped,
+              ethUsd: ethUsd,
+              ethIn: ethForBuy,
+              ethInF: parseFloat(ethers.utils.formatEther(ethForBuy)),
+              token: token.toLowerCase(),
+              symbol: info.symbol || 'TOKEN',
+              pool: info.pool,
+              tick: state.tick,
+              range: ladder.ranges[0] && ladder.ranges[0].range,
+              ranges: ladder.ranges,
+              dual: dual,
+              wallet: wallet.toLowerCase(),
+              txs: txs,
+              explorerPool: CFG.EXPLORER + '/address/' + info.pool,
+              explorerNpm: CFG.EXPLORER + '/address/' + CFG.NPM,
+              explorerPositions: CFG.EXPLORER + '/address/' + wallet + '#nft_transfers',
+              protections: {
+                ladderBands: SEAT_BUY_LADDER.length,
+                belowSpotBuyWall: true,
+                dualSellWall: Boolean(dual),
+                neverMarketBuyToSeed: true,
+                depthCapUsd: depthCapUsd,
+                capped: capped,
+                pool: {
+                  wethUsd: wethUsd,
+                  tokenUsd: tokenUsd,
+                  mcflInPool: state.sellSideTokens
+                },
+                warnings: warnings,
+                advice: advice
+              }
+            };
+          });
         });
       });
     });
@@ -1222,6 +1430,7 @@
     planFeeSwap: planFeeSwap,
     planSeatDeposit: planSeatDeposit,
     buyWallTx: buyWallTx,
+    sellWallTx: sellWallTx,
     treasuryBuyWallTx: treasuryBuyWallTx,
     encodeV3Path: encodeV3Path,
     discoverPairPool: discoverPairPool,
