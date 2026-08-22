@@ -233,4 +233,20 @@
   border-radius: 12px;
   margin-bottom: var(--space-3);
 }
-.hidden { display: none !important; }
+.seat-alerts { margin-top: var(--space-3); }
+.seat-alerts .warn-item,
+.seat-alerts .advice-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: var(--text-sm);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.seat-alerts .warn-item {
+  background: var(--yellow-soft, #fff6e0);
+  color: #6b4e00;
+}
+.seat-alerts .advice-item {
+  background: rgba(232, 120, 72, 0.08);
+  color: var(--text);
+}

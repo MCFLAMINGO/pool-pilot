@@ -280,9 +280,73 @@
     } else {
       $('mineTx').textContent = '—';
     }
+    var withdrawHref = explorerAddr(mine.wallet) + '#token_transfers';
+    $('mineWithdraw').innerHTML =
+      '<a href="' + esc(withdrawHref) + '" target="_blank" rel="noopener">Your address on Blockscout</a> · decrease liquidity on the NFT';
+    if ($('mineWithdrawBtn')) $('mineWithdrawBtn').href = withdrawHref;
+
+    var stageId = stage.id || 'seated';
+    var adviceEl = $('mineStageAdvice');
+    if (adviceEl) {
+      if (stageId === 'seated') {
+        adviceEl.textContent = 'Parked. Drive volume with your ref — don’t add more ETH into the same thin band until Ignite.';
+      } else if (stageId === 'ignite' || stageId === 'breakout') {
+        adviceEl.textContent =
+          'Stage unlocked. Prefer bridging MCFL (Sol→RH) to deepen sell-side over stacking more ETH in one wall. Ladder already protects dumps.';
+      } else {
+        adviceEl.textContent =
+          'You’re past early stages — keep links live. Withdraw or rebalance NFTs anytime; you own them.';
+      }
+    }
+
     var links = P.buildLinks({ ref: mine.ref, symbol: mine.symbol || 'MCFL', token: mine.token });
     $('minePack').href = links.pack;
     $('minePartner').href = links.partner;
+  }
+
+  function showPlanProtections(plan) {
+    var box = $('protectAlerts');
+    if (!box) return;
+    var p = plan && plan.protections;
+    if (!p) {
+      box.innerHTML = '';
+      return;
+    }
+    var html = '';
+    (p.warnings || []).forEach(function (w) {
+      html += '<div class="warn-item">' + esc(w) + '</div>';
+    });
+    (p.advice || []).forEach(function (a) {
+      html += '<div class="advice-item">' + esc(a) + '</div>';
+    });
+    if (p.pool) {
+      html +=
+        '<div class="advice-item">Live pool · ETH side ~' + fmtUsd(p.pool.wethUsd) +
+        ' · MCFL side ~' + fmtUsd(p.pool.tokenUsd) +
+        (plan.mode === 'dual-ladder' ? ' · dual sell wall armed' : '') +
+        (plan.capped ? ' · deposit auto-capped to ' + fmtUsd(plan.usd) : '') +
+        '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function loadPoolDepth() {
+    var line = $('poolDepthLine');
+    if (!line) return;
+    L.fetchEthUsd().then(function (ethUsd) {
+      S.ethUsd = ethUsd;
+      return L.discoverPool(read, CFG.MCFL).then(function (info) {
+        return L.readState(read, info, ethUsd).then(function (state) {
+          line.textContent =
+            'Live MCFL pool · buy-side (ETH) ~' + fmtUsd(state.buySideUsd) +
+            ' · sell-side (MCFL) ~' + fmtUsd(state.sellSideUsd) +
+            ' (~' + Math.round(state.sellSideTokens).toLocaleString() + ' MCFL). ' +
+            'Buys clear sell-side; your seat wall sits below spot.';
+        });
+      });
+    }).catch(function () {
+      line.textContent = 'Pool depth unavailable right now.';
+    });
   }
 
   function loadBoard() {
@@ -300,6 +364,7 @@
         renderRound(j);
         renderBoard(j);
         renderMine(j);
+        loadPoolDepth();
       })
       .catch(function () {
         $('boardList').textContent = 'Could not reach partner API.';
@@ -382,31 +447,46 @@
         ethUsd: S.ethUsd
       }).then(function (plan) {
         S.plan = plan;
+        showPlanProtections(plan);
+        var dualNote = plan.dual
+          ? (' + sell wall (~' + fmtUsd(plan.dual.tokenUsd) + ' ' + esc(plan.symbol) + ')')
+          : '';
         $('execBox').innerHTML =
           'Deposit <strong>' + esc(plan.ethInF.toFixed(5)) + ' ETH</strong> (~' + fmtUsd(plan.usd) + ')' +
-          ' into <strong>' + esc(plan.symbol) + '</strong> buy wall.<br>' +
+          ' as a <strong>3-band buy wall</strong>' + dualNote + '.<br>' +
           'Pool <a href="' + esc(plan.explorerPool) + '" target="_blank" rel="noopener">' +
-          esc(short(plan.pool)) + '</a> — you own the NFT.';
+          esc(short(plan.pool)) + '</a> — you own the NFT(s). ' +
+          plan.txs.length + ' step' + (plan.txs.length === 1 ? '' : 's') + '.';
         var signer = S.wallet.provider.getSigner();
-        var tx = plan.txs[0];
-        $('buyBtn').textContent = 'Confirm in wallet…';
-        return signer.sendTransaction({
-          to: tx.to,
-          data: tx.data || '0x',
-          value: tx.value || '0x0'
-        }).then(function (resp) {
-          $('execBox').innerHTML +=
-            '<br>Tx <a href="' + esc(explorerTx(resp.hash)) + '" target="_blank" rel="noopener">' +
-            esc(short(resp.hash)) + '</a> — waiting…';
-          return read.waitForTransaction(resp.hash, 1, 180000).then(function (rc) {
-            if (!rc || rc.status !== 1) throw new Error('Transaction reverted.');
-            return registerSeat(plan, resp.hash).then(function (reg) {
-              if (!reg.j || !reg.j.ok) {
-                throw new Error((reg.j && reg.j.error) || 'Seat registered on-chain but API failed — keep your tx hash.');
-              }
-              $('execBox').innerHTML += '<br><strong>Seat live.</strong> Follow milestones below as your volume lands.';
-              return loadBoard();
+        var hashes = [];
+        var chain = Promise.resolve();
+        plan.txs.forEach(function (tx, i) {
+          chain = chain.then(function () {
+            $('buyBtn').textContent = 'Confirm step ' + (i + 1) + '/' + plan.txs.length + '…';
+            $('execBox').innerHTML += '<br>' + esc(tx.label || ('Step ' + (i + 1)));
+            return signer.sendTransaction({
+              to: tx.to,
+              data: tx.data || '0x',
+              value: tx.value || '0x0'
+            }).then(function (resp) {
+              hashes.push(resp.hash);
+              $('execBox').innerHTML +=
+                ' · <a href="' + esc(explorerTx(resp.hash)) + '" target="_blank" rel="noopener">' +
+                esc(short(resp.hash)) + '</a>';
+              return read.waitForTransaction(resp.hash, 1, 180000).then(function (rc) {
+                if (!rc || rc.status !== 1) throw new Error('Transaction reverted.');
+              });
             });
+          });
+        });
+        return chain.then(function () {
+          var hash = hashes[hashes.length - 1];
+          return registerSeat(plan, hash).then(function (reg) {
+            if (!reg.j || !reg.j.ok) {
+              throw new Error((reg.j && reg.j.error) || 'Seat registered on-chain but API failed — keep your tx hash.');
+            }
+            $('execBox').innerHTML += '<br><strong>Seat live.</strong> Ladder is below spot; withdraw anytime from your NFTs.';
+            return loadBoard();
           });
         });
       }).catch(function (e) {
