@@ -33,11 +33,27 @@ css/styles.css  design system, light/dark
 js/chainlib.js  chain library — all reads, all transaction construction (universal: Node + browser)
 js/app.js       LP UI layer
 js/swap.js      swap UI layer
+server/         partner attribution API (Express; file or Postgres store)
+api/            Vercel serverless entry for the same API
 agents/outreach/  rate-limited X + Telegram poster (dry-run by default)
 test/           Node test suites that exercise chainlib.js against a mainnet fork
 ```
 
 `chainlib.js` is deliberately environment-agnostic: the exact same module that runs in the browser is what the fork tests import. **The code an auditor reviews is the code that ships and the code that is tested** — there is no build transform in between.
+
+### Partner attribution API
+
+Swaps with a `?ref=` (or TG `ref_NAME_…` startapp) POST a receipt to `POST /api/events`. Partners read aggregates at `GET /api/stats/:ref` (also the `/partner` page).
+
+```bash
+npm run server                 # http://127.0.0.1:8787
+npm run test:partner-api
+```
+
+- Default store: `data/partner-events.json` (gitignored)
+- Postgres: set `DATABASE_URL` / `POSTGRES_URL` / `LOCAL_INTEL_DB_URL`
+- Optional: `PARTNER_INGEST_KEY` requires `X-Partner-Key` on writes
+- Production: same-origin `/api/*` on Vercel, or Railway `npm run server` with `PORT`
 
 ### Contracts used (Robinhood Chain)
 

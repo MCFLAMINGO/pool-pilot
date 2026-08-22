@@ -1,4 +1,4 @@
-/* Partner stats — refs + local receipts + live pool read */
+/* Partner stats — refs + server/local receipts + live pool read */
 (function () {
   'use strict';
   var P = window.PoolPilotPartner;
@@ -20,14 +20,14 @@
     return '$' + Math.round(n).toLocaleString();
   }
 
-  function renderLocal() {
-    var ref = P.cleanRef($('ref').value);
-    var sum = P.summarizeRef(ref);
+  function renderStats(sum) {
     $('statSwaps').textContent = String(sum.swaps);
     $('statUsd').textContent = sum.usd > 0 ? fmtUsd(sum.usd) : '—';
-    var rows = sum.rows.slice().reverse().slice(0, 12);
+    var src = sum.store === 'local' ? 'local' : (sum.store || 'server');
+    if ($('statSource')) $('statSource').textContent = src;
+    var rows = (sum.rows || []).slice().slice(0, 12);
     if (!rows.length) {
-      $('eventList').textContent = 'No local receipts yet for ref “' + (ref || 'any') + '”.';
+      $('eventList').textContent = 'No attributed receipts yet for ref “' + (sum.ref || P.cleanRef($('ref').value) || 'any') + '”.';
       return;
     }
     $('eventList').innerHTML = rows.map(function (e) {
@@ -85,8 +85,12 @@
     if (links.symbol) u.searchParams.set('symbol', links.symbol);
     if (links.token) u.searchParams.set('token', links.token);
     history.replaceState(null, '', u.pathname + u.search);
-    renderLocal();
-    return loadPool();
+    $('statSwaps').textContent = '…';
+    $('statUsd').textContent = '…';
+    return P.fetchStats(links.ref, 50).then(function (sum) {
+      renderStats(sum);
+      return loadPool();
+    });
   }
 
   $('loadBtn').addEventListener('click', load);

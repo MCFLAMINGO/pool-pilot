@@ -1,4 +1,4 @@
-/* Pool Pilot partner / BD helpers — links, refs, local swap receipts. */
+/* Pool Pilot partner / BD helpers — links, refs, local + server swap receipts. */
 (function (root) {
   'use strict';
 
@@ -6,6 +6,25 @@
   var REF_KEY = 'pp_ref';
   var EVENTS_KEY = 'pp_partner_events';
   var MAX_EVENTS = 200;
+
+  /** API host: same-origin on poolpilot.xyz / Vercel; :8787 when serving static locally. */
+  function apiBase() {
+    try {
+      if (root.POOL_PILOT_API) return String(root.POOL_PILOT_API).replace(/\/$/, '');
+    } catch (e) { /* ignore */ }
+    try {
+      var h = location.hostname;
+      if (h === 'poolpilot.xyz' || h === 'www.poolpilot.xyz' || /\.vercel\.app$/.test(h)) {
+        return location.origin;
+      }
+      if (h === 'localhost' || h === '127.0.0.1') {
+        return 'http://127.0.0.1:8787';
+      }
+      return location.origin;
+    } catch (e) {
+      return ORIGIN;
+    }
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -176,7 +195,7 @@
     } catch (e) { /* ignore */ }
   }
 
-  /** Local receipt log for partner demos (same-browser / shared machine). */
+  /** Local + server receipt log. Local always; POST /api/events best-effort. */
   function logEvent(ev) {
     ev = ev || {};
     var row = {
@@ -192,6 +211,17 @@
     var arr = readEvents();
     arr.push(row);
     writeEvents(arr);
+    try {
+      var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+      if (root.POOL_PILOT_PARTNER_KEY) headers['X-Partner-Key'] = String(root.POOL_PILOT_PARTNER_KEY);
+      fetch(apiBase() + '/api/events', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(row),
+        keepalive: true,
+        mode: 'cors'
+      }).catch(function () { /* offline / CSP / no API */ });
+    } catch (e) { /* ignore */ }
     return row;
   }
 
@@ -205,11 +235,33 @@
     var swaps = rows.filter(function (e) { return e.kind === 'swap'; });
     var usd = 0;
     swaps.forEach(function (e) { if (e.usd && isFinite(e.usd)) usd += e.usd; });
-    return { events: rows.length, swaps: swaps.length, usd: usd, rows: rows };
+    return { events: rows.length, swaps: swaps.length, usd: usd, rows: rows, store: 'local' };
+  }
+
+  /** Fetch aggregated partner stats from backend (falls back to local). */
+  function fetchStats(ref, limit) {
+    ref = cleanRef(ref);
+    var q = '/api/stats' + (ref ? ('/' + encodeURIComponent(ref)) : '') +
+      (limit ? ('?limit=' + encodeURIComponent(String(limit))) : '');
+    return fetch(apiBase() + q, { headers: { Accept: 'application/json' }, mode: 'cors' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.ok) return summarizeRef(ref);
+        return {
+          ref: j.ref || ref,
+          store: j.store || 'remote',
+          events: j.events || 0,
+          swaps: j.swaps || 0,
+          usd: Number(j.usd) || 0,
+          rows: Array.isArray(j.rows) ? j.rows : []
+        };
+      })
+      .catch(function () { return summarizeRef(ref); });
   }
 
   root.PoolPilotPartner = {
     ORIGIN: ORIGIN,
+    apiBase: apiBase,
     esc: esc,
     cleanRef: cleanRef,
     cleanSymbol: cleanSymbol,
@@ -226,6 +278,7 @@
     logEvent: logEvent,
     readEvents: readEvents,
     eventsForRef: eventsForRef,
-    summarizeRef: summarizeRef
+    summarizeRef: summarizeRef,
+    fetchStats: fetchStats
   };
 })(window);
