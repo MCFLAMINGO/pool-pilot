@@ -10,6 +10,8 @@
     { "source": "/case", "destination": "/case.html" },
     { "source": "/embed", "destination": "/embed.html" },
     { "source": "/press", "destination": "/press.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/seat", "destination": "/seat.html" },
     { "source": "/field", "destination": "/field.html" },
     { "source": "/list", "destination": "/list.html" },

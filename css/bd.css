@@ -88,3 +88,12 @@
   padding: 12px 14px; border-radius: 12px; background: #e0447c; color: #fff;
 }
 .embed-card .sub { display: block; margin-top: 10px; text-align: center; font-size: 0.78rem; color: #8a817a; text-decoration: none; }
+
+/* Privacy / Terms */
+.legal h3 { margin: var(--space-4) 0 var(--space-2); font-size: 1.05rem; }
+.legal p, .legal li { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.5; }
+.legal p { margin: 0 0 var(--space-3); }
+.legal ul { margin: 0 0 var(--space-3); padding-left: 1.2rem; }
+.legal li { margin-bottom: 0.4rem; }
+.legal a { color: var(--accent, #e0447c); }
+.legal code { font-family: var(--font-mono); font-size: 0.85em; }
