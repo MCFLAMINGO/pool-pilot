@@ -694,9 +694,10 @@
     });
   }
 
-  // ETH → treasury-owned buy wall in the MCFL pool (5%–30% below spot).
-  // Single tx: NPM.multicall([mint(recipient=treasury), refundETH]) with ETH value.
-  function treasuryBuyWallTx(info, tick, ethIn, label) {
+  // ETH → WETH-only buy wall (5%–30% below spot). Single tx: mint + refundETH.
+  // recipient owns the Uniswap v3 NFT — treasury for protocol fees, wallet for seats.
+  function buyWallTx(info, tick, ethIn, recipient, label) {
+    if (!recipient || !ethers.utils.isAddress(recipient)) throw new Error('Buy wall needs a recipient.');
     var sp = info.spacing;
     var offTop = multToTickOffset(0.95, info.tokenIsToken1);
     var offBot = multToTickOffset(0.70, info.tokenIsToken1);
@@ -719,19 +720,77 @@
       tickLower: lo, tickUpper: hi,
       amount0Desired: amount0, amount1Desired: amount1,
       amount0Min: 0, amount1Min: 0,
-      recipient: CFG.TREASURY, deadline: deadline()
+      recipient: recipient, deadline: deadline()
     };
     var calls = [
       iNPM.encodeFunctionData('mint', [mintParams]),
       iNPM.encodeFunctionData('refundETH', [])
     ];
     return {
-      label: label || ('ETH → MCFL buy-side LP (treasury)'),
+      label: label || ('ETH → buy-side LP'),
       to: CFG.NPM,
       value: ethIn.toHexString(),
       data: iNPM.encodeFunctionData('multicall', [calls]),
-      mintParams: mintParams
+      mintParams: mintParams,
+      range: [lo, hi],
+      pool: info.pool || info.poolAddress || null
     };
+  }
+
+  function treasuryBuyWallTx(info, tick, ethIn, label) {
+    return buyWallTx(info, tick, ethIn, CFG.TREASURY, label || 'ETH → MCFL buy-side LP (treasury)');
+  }
+
+  /**
+   * Partner seat buy-in: user-owned buy wall (default MCFL pool).
+   * opts: { usdAmount, walletAddr, token?, ethUsd? }
+   */
+  function planSeatDeposit(provider, opts) {
+    opts = opts || {};
+    var usd = Number(opts.usdAmount);
+    if (!isFinite(usd) || usd <= 0) throw new Error('Enter a buy-in amount in USD.');
+    var wallet = opts.walletAddr;
+    if (!wallet || !ethers.utils.isAddress(wallet)) throw new Error('Connect a wallet first.');
+    var token = (opts.token && ethers.utils.isAddress(opts.token)) ? opts.token : CFG.MCFL;
+
+    var ethUsdP = opts.ethUsd != null
+      ? Promise.resolve(Number(opts.ethUsd))
+      : fetchEthUsd();
+
+    return ethUsdP.then(function (ethUsd) {
+      if (!isFinite(ethUsd) || ethUsd < 100 || ethUsd > 100000) {
+        throw new Error('ETH/USD feed unavailable — try again.');
+      }
+      var ethF = usd / ethUsd;
+      if (ethF < 0.0001) throw new Error('Buy-in too small after ETH conversion.');
+      var ethIn = ethers.utils.parseEther(ethF.toFixed(8));
+      return discoverPool(provider, token).then(function (info) {
+        return readState(provider, info, ethUsd).then(function (state) {
+          var tx = buyWallTx(
+            info,
+            state.tick,
+            ethIn,
+            wallet,
+            'Seat buy-in — ' + usd.toFixed(0) + ' USD ETH into your buy wall'
+          );
+          return {
+            kind: 'seat',
+            usd: usd,
+            ethUsd: ethUsd,
+            ethIn: ethIn,
+            ethInF: parseFloat(ethers.utils.formatEther(ethIn)),
+            token: token.toLowerCase(),
+            symbol: info.symbol || 'TOKEN',
+            pool: info.pool,
+            tick: state.tick,
+            range: tx.range,
+            wallet: wallet.toLowerCase(),
+            txs: [tx],
+            explorerPool: CFG.EXPLORER + '/address/' + info.pool
+          };
+        });
+      });
+    });
   }
 
   /**
@@ -1161,6 +1220,9 @@
     quoteFeeUsd: quoteFeeUsd,
     planBuyMcfl: planBuyMcfl,
     planFeeSwap: planFeeSwap,
+    planSeatDeposit: planSeatDeposit,
+    buyWallTx: buyWallTx,
+    treasuryBuyWallTx: treasuryBuyWallTx,
     encodeV3Path: encodeV3Path,
     discoverPairPool: discoverPairPool,
     normalizeSwapSide: normalizeSwapSide,

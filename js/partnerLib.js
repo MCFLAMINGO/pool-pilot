@@ -124,6 +124,7 @@
     var caseUrl = ORIGIN + '/case?symbol=' + encodeURIComponent(symbol) + (token ? '&token=' + token : '') + (ref ? '&ref=' + ref : '');
     var pack = ORIGIN + '/pack?symbol=' + encodeURIComponent(symbol) + (token ? '&token=' + token : '') + '&usd=' + usd + (ref ? '&ref=' + ref : '');
     var partner = ORIGIN + '/partner?ref=' + (ref || symbol.toLowerCase()) + (token ? '&token=' + token : '') + '&symbol=' + encodeURIComponent(symbol);
+    var seat = ORIGIN + '/seat?ref=' + (ref || symbol.toLowerCase()) + (token ? '&token=' + token : '') + '&usd=' + usd;
     var startapp = tgStartParam({ symbol: symbol, token: token, usd: usd, ref: ref });
     var mini = 'https://t.me/poolpilotswapbot?startapp=' + startapp;
 
@@ -139,6 +140,7 @@
       caseUrl: caseUrl,
       pack: pack,
       partner: partner,
+      seat: seat,
       mini: mini,
       startapp: startapp,
       home: withRef(ORIGIN + '/', ref),

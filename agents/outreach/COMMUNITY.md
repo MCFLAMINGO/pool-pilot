@@ -9,9 +9,16 @@ https://poolpilot.xyz/pack?symbol=MCFL&token=0x21a91215fbfc4fc002b07cc87698a6fc0
 ```
 
 Stats / attributed receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
-(API: `GET /api/stats/yourcommunity` · swaps with `?ref=` POST to `/api/events`)  
+Seat (buy-in + share board): https://poolpilot.xyz/seat?ref=yourcommunity&usd=250  
+(API: `GET /api/stats/yourcommunity` · `GET /api/seats` · swaps with `?ref=` POST to `/api/events`)  
 Case study template: https://poolpilot.xyz/case?symbol=MCFL&token=0x…  
 Press kit: https://poolpilot.xyz/press
+
+## How seats work
+Round 1: **$100–$500** ETH into a buy wall **you own** (Uniswap NFT in your wallet).  
+Round 2: **$1,000–$5,000** when early seats fill or volume grows.  
+Share weight = **60% capital + 40% attributed swap volume** from your links.  
+Desk 0.30% skim still goes to treasury; seat = liquidity + attribution + BD seat — not an auto cash split yet.
 
 ## How you earn
 Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim is split: most goes into a treasury-owned **MCFL buy-wall LP** (ETH into the book), and the rest quietly buys **MCFL** into the treasury wallet — same Swap button, no separate steps. Other input assets still transfer to treasury as-is.  

@@ -55,6 +55,19 @@ npm run test:partner-api
 - Optional: `PARTNER_INGEST_KEY` requires `X-Partner-Key` on writes
 - Production: same-origin `/api/*` on Vercel, or Railway `npm run server` with `PORT`
 
+### Partner seats (`/seat`)
+
+Plug-and-play KOL / community seats:
+
+1. Round 1 buy-in **$100–$500** ETH → user-owned Uniswap v3 buy wall (default MCFL)
+2. Round 2 **$1,000–$5,000** when Round 1 fills (15 seats), raise, or attributed volume clears the bar
+3. Board shows **where ETH is** (wallet, pool, mint tx) and **share** = 60% capital + 40% attributed volume
+
+```bash
+npm run test:seats-api
+```
+
+
 ### Contracts used (Robinhood Chain)
 
 | Role | Address |
