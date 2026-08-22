@@ -8,9 +8,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ensureDataDir } = require('./dataPath');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILE_PATH = path.join(DATA_DIR, 'partner-events.json');
+const FILE_PATH = () => path.join(ensureDataDir(), 'partner-events.json');
 const MAX_EVENTS = 5000;
 
 /** Invisible house bucket for cold / natural traffic (not a partner seat). */
@@ -65,14 +65,16 @@ function usePostgres() {
 
 /* ---------- file store ---------- */
 function ensureFile() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, '[]\n', 'utf8');
+  const fp = FILE_PATH();
+  const dir = path.dirname(fp);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(fp)) fs.writeFileSync(fp, '[]\n', 'utf8');
 }
 
 function readFileEvents() {
   ensureFile();
   try {
-    const raw = fs.readFileSync(FILE_PATH, 'utf8');
+    const raw = fs.readFileSync(FILE_PATH(), 'utf8');
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
   } catch {
@@ -82,7 +84,7 @@ function readFileEvents() {
 
 function writeFileEvents(arr) {
   ensureFile();
-  fs.writeFileSync(FILE_PATH, JSON.stringify(arr.slice(-MAX_EVENTS), null, 0) + '\n', 'utf8');
+  fs.writeFileSync(FILE_PATH(), JSON.stringify(arr.slice(-MAX_EVENTS), null, 0) + '\n', 'utf8');
 }
 
 /* ---------- postgres ---------- */
@@ -252,7 +254,7 @@ async function health() {
     return { ok: true, store: 'postgres' };
   }
   ensureFile();
-  return { ok: true, store: 'file', path: FILE_PATH };
+  return { ok: true, store: 'file', path: FILE_PATH() };
 }
 
 module.exports = {

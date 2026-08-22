@@ -8,9 +8,9 @@
 const fs = require('fs');
 const path = require('path');
 const eventsStore = require('./store');
+const { ensureDataDir } = require('./dataPath');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILE_PATH = path.join(DATA_DIR, 'partner-seats.json');
+const FILE_PATH = () => path.join(ensureDataDir(), 'partner-seats.json');
 const MAX_SEATS_FILE = 500;
 
 /** Round 1 = 12 seats at $500 (clear ticket). Round 2 opens after fill / raise / volume. */
@@ -112,14 +112,16 @@ function usePostgres() {
 }
 
 function ensureFile() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, '[]\n', 'utf8');
+  const fp = FILE_PATH();
+  const dir = path.dirname(fp);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(fp)) fs.writeFileSync(fp, '[]\n', 'utf8');
 }
 
 function readFileSeats() {
   ensureFile();
   try {
-    const arr = JSON.parse(fs.readFileSync(FILE_PATH, 'utf8'));
+    const arr = JSON.parse(fs.readFileSync(FILE_PATH(), 'utf8'));
     return Array.isArray(arr) ? arr : [];
   } catch {
     return [];
@@ -128,7 +130,7 @@ function readFileSeats() {
 
 function writeFileSeats(arr) {
   ensureFile();
-  fs.writeFileSync(FILE_PATH, JSON.stringify(arr.slice(-MAX_SEATS_FILE), null, 0) + '\n', 'utf8');
+  fs.writeFileSync(FILE_PATH(), JSON.stringify(arr.slice(-MAX_SEATS_FILE), null, 0) + '\n', 'utf8');
 }
 
 let pgPool = null;
@@ -237,7 +239,7 @@ async function readAllEvents() {
     }
   }
   try {
-    const file = path.join(DATA_DIR, 'partner-events.json');
+    const file = path.join(ensureDataDir(), 'partner-events.json');
     if (!fs.existsSync(file)) return [];
     const arr = JSON.parse(fs.readFileSync(file, 'utf8'));
     return Array.isArray(arr) ? arr : [];

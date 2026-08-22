@@ -98,7 +98,10 @@ async function handler(req, res) {
       return send(res, result.deduped ? 200 : 201, result);
     }
 
-    if (req.method === 'GET' && (pathname === '/api/ops/reach' || pathname === '/ops/reach')) {
+    if (
+      req.method === 'GET' &&
+      (pathname === '/api/ops/reach' || pathname === '/api/reach')
+    ) {
       const u = new URL(req.url || '/', 'http://local');
       house.authorizeOps({
         headers: req.headers,
