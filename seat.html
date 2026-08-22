@@ -6,9 +6,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Partner seat — Pool Pilot</title>
-<meta name="description" content="Buy a $500 founding seat, drive attributed volume, hit milestones, get paid monthly. See the full path.">
+<meta name="description" content="Buy a $500 founding seat — own your buy wall, drive attributed volume, climb the Live field. No monthly checks.">
 <meta property="og:title" content="Partner seat — Pool Pilot">
-<meta property="og:description" content="$500 seat · own your buy wall · clear volume milestones · monthly pay.">
+<meta property="og:description" content="$500 seat · own your buy wall · volume milestones · desk skim stays with the protocol.">
 <meta property="og:url" content="https://poolpilot.xyz/seat">
 <meta property="og:image" content="https://poolpilot.xyz/og-swap.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -41,14 +41,14 @@
 
   <section class="card seat-hero" data-testid="card-seat">
     <p class="bd-kicker" id="roundKicker">Round 1 · 12 seats</p>
-    <h2>Buy the seat. Drive volume. Get paid.</h2>
-    <p class="bd-lead">One clear path: park <strong>$500</strong> of ETH in a buy wall <em>you</em> own, share your <span class="mono">ref</span> links, hit volume milestones, collect a monthly check. Everyone advances on their own volume — you can see the field.</p>
+    <h2>Buy the seat. Own the wall. Drive volume.</h2>
+    <p class="bd-lead">Park <strong>$500</strong> of ETH in a buy wall <em>you</em> own. Share your <span class="mono">ref</span> links, climb milestones on the Live field. <strong>No monthly checks</strong> — desk 0.30% stays with Pool Pilot. Your upside is automatic: dumps that fill your wall pay you in token, in your wallet.</p>
 
     <ol class="seat-steps" data-testid="seat-steps">
       <li><span class="n">1</span><div><strong>Buy seat — $500</strong><span>ETH into your Uniswap buy wall (still yours)</span></div></li>
       <li><span class="n">2</span><div><strong>Drive volume</strong><span>Arrive / swap / Mini App with your ref</span></div></li>
       <li><span class="n">3</span><div><strong>Hit milestones</strong><span>Ignite → Breakout → Pro → Killing it</span></div></li>
-      <li><span class="n">4</span><div><strong>Get paid monthly</strong><span>Stage bonus + 100% of your 0.30% skim</span></div></li>
+      <li><span class="n">4</span><div><strong>Earn from your wall</strong><span>Fills → you receive token · withdraw anytime</span></div></li>
     </ol>
 
     <div class="seat-tier" id="tierBox" data-testid="seat-tier">
@@ -67,7 +67,7 @@
 
   <section class="card" data-testid="card-seat-path">
     <h3>Goals &amp; milestones</h3>
-    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks the next stage. Monthly check = <strong>stage bonus</strong> + <strong>all</strong> of Pool Pilot’s 0.30% on your volume that month.</p>
+    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks the next stage on the Live field. Stages are status — not a paycheck. Protocol fee always stays with the desk.</p>
     <div class="seat-path" id="pathLegend" data-testid="seat-path-legend">
       <!-- filled by js -->
     </div>
@@ -107,13 +107,14 @@
 
   <section class="card" id="mineCard" data-testid="card-seat-mine">
     <h3>Your path</h3>
-    <p class="bd-lead" id="mineEmpty">Buy a seat (or enter your ref) to see your milestones, volume, and monthly estimate.</p>
+    <p class="bd-lead" id="mineEmpty">Buy a seat (or enter your ref) to see your milestones and attributed volume.</p>
     <div id="mineBody" class="hidden">
       <div class="seat-pay" data-testid="seat-pay">
-        <div class="bd-stat"><div class="n" id="payMonth">—</div><div class="l">Est. this month</div></div>
-        <div class="bd-stat"><div class="n" id="payBonus">—</div><div class="l">Stage bonus</div></div>
-        <div class="bd-stat"><div class="n" id="paySkim">—</div><div class="l">Your skim (MTD)</div></div>
+        <div class="bd-stat"><div class="n" id="payVol">—</div><div class="l">Lifetime volume</div></div>
+        <div class="bd-stat"><div class="n" id="payMonth">—</div><div class="l">Volume MTD</div></div>
+        <div class="bd-stat"><div class="n" id="payStage">—</div><div class="l">Stage</div></div>
       </div>
+      <p class="bd-lead" id="econLine" data-testid="text-seat-econ" style="margin-top:var(--space-3)"></p>
       <p class="bd-kicker" id="mineStageLabel" style="margin-top:var(--space-4)">Stage</p>
       <div class="seat-milestone-track" id="mineMilestones" data-testid="mine-milestones"></div>
       <p class="bd-lead" id="mineNextLine"></p>
