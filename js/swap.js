@@ -781,8 +781,6 @@
   var inn = (q.get('in') || '').toLowerCase();
   var outSide = (q.get('to') || q.get('sideOut') || '').toLowerCase();
   var fromRelay = (q.get('from') || '').toLowerCase() === 'relay';
-  var fundGoal = (q.get('fund') || q.get('get') || '').toLowerCase();
-  var qUsd = q.get('usd') || q.get('amountUsd');
 
   if (inn === 'usdg') $('tokenInSel').value = 'USDG';
   else if (inn === 'token' || inn === 'erc20') $('tokenInSel').value = 'TOKEN';
@@ -791,18 +789,6 @@
   if (outSide === 'usdg') $('tokenOutSel').value = 'USDG';
   else if (outSide === 'eth') $('tokenOutSel').value = 'ETH';
   else if (outSide === 'token') $('tokenOutSel').value = 'TOKEN';
-
-  if (qUsd && isFinite(Number(qUsd)) && Number(qUsd) > 0) {
-    S.fundUsd = Math.round(Number(qUsd));
-    Array.prototype.forEach.call(document.querySelectorAll('#fundPresets .chip'), function (c) {
-      c.classList.toggle('is-active', Number(c.getAttribute('data-fund-usd')) === S.fundUsd);
-    });
-  }
-
-  if (fundGoal === 'usdg' || fundGoal === 'usd' || outSide === 'usdg') {
-    setFundOpen(true);
-    applyBuyUsdg();
-  }
 
   if (out && /^0x[0-9a-fA-F]{40}$/i.test(out)) {
     $('tokenAddr').value = ethers.utils.getAddress(out);
@@ -829,11 +815,8 @@
   if (fromRelay) {
     var ab = $('arriveBanner');
     if (ab) {
-      ab.innerHTML = fundGoal === 'usdg' || fundGoal === 'usd' || outSide === 'usdg'
-        ? 'Back from Relay — desk set to <strong>ETH → USDG</strong>. Connect on <strong>4663</strong> and swap. Still need ETH? Use <strong>Bridge ETH to RH</strong> in Fund this desk.'
-        : 'Back from Relay — desk is prefilled. Connect wallet on <strong>4663</strong> and swap. Need cash? Open <strong>Fund this desk</strong> above for ETH → USDG.';
+      ab.textContent = 'Back from Relay — connect on Robinhood Chain (4663) and swap.';
       ab.classList.remove('hidden');
-      setFundOpen(true);
     }
   }
   try {
@@ -845,10 +828,8 @@
   updateUnitBtn();
   updateWalletBtn();
   highlightChip();
-  updateFundRelayHref();
   L.fetchEthUsd().then(function (u) {
     S.ethUsd = u;
-    updateFundRelayHref();
     updateUsdHints();
     scheduleQuote();
   }).catch(function () { scheduleQuote(); });
