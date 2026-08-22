@@ -1082,14 +1082,16 @@
    * Fee swap — ETH | USDG | Token triangular desk.
    * Skims SWAP_FEE_BPS of amountIn before the Uniswap hop. User signs every tx.
    *
-   * ETH skim (quiet, same Swap button):
+   * When opts.partnerWallet is a seat holder address (from attributed ref):
+   *   Full skim transfers to that wallet (ETH value or ERC-20) — automatic, no claim.
+   * Otherwise ETH skim (quiet, same Swap button):
    *   Bootstrap (MCFL pool buy-side ETH USD < SWAP_FEE_BOOTSTRAP_BUY_USD):
    *     100% → treasury-owned MCFL buy-wall LP (strengthen the book; no quiet buy)
    *   After bootstrap:
    *     1) SWAP_FEE_LP_SHARE_BPS → buy-wall LP
    *     2) remainder → ETH→MCFL buy to TREASURY
    * Dust legs are folded into the other path; total failure falls back to ETH transfer.
-   * Non-ETH skims still transfer the input asset to treasury.
+   * Non-ETH skims still transfer the input asset to treasury (or partner when set).
    *
    * tokenIn / tokenOut: 'ETH' | 'USDG' | 0x address.
    */
@@ -1101,6 +1103,12 @@
 
     var amountInF = Number(opts.amountIn);
     if (!isFinite(amountInF) || amountInF <= 0) throw new Error('Enter an amount to swap.');
+
+    var partnerWallet = null;
+    if (opts.partnerWallet && ethers.utils.isAddress(opts.partnerWallet)) {
+      partnerWallet = ethers.utils.getAddress(opts.partnerWallet);
+      if (partnerWallet.toLowerCase() === CFG.TREASURY.toLowerCase()) partnerWallet = null;
+    }
 
     var sideIn = normalizeSwapSide(opts.tokenIn);
     var sideOut = normalizeSwapSide(opts.tokenOut);
@@ -1141,9 +1149,9 @@
         var outIsUsdg = b.kind === 'usdg';
         var dust = ethers.BigNumber.from(CFG.SWAP_FEE_DUST_WEI);
 
-        /** Split ETH skim → buy-wall LP (+ quiet MCFL buy only after bootstrap). */
+        /** Split ETH skim → buy-wall LP (+ quiet MCFL buy only after bootstrap). Skip when partner takes skim. */
         var feeSplitP = Promise.resolve(null);
-        if (inIsEth && feeAmt.gt(0)) {
+        if (inIsEth && feeAmt.gt(0) && !partnerWallet) {
           feeSplitP = Promise.all([
             discoverPool(provider, CFG.MCFL),
             fetchEthUsd()
@@ -1228,6 +1236,9 @@
             feeBps: feeBps,
             feeAmt: feeAmt,
             feeF: feeF,
+            feeToPartner: !!partnerWallet,
+            feeRecipient: partnerWallet || CFG.TREASURY,
+            partnerWallet: partnerWallet,
             feeBuysMcfl: !!(feeBuyMcfl && feeBuyMcfl.amountOut),
             feeMcflOutF: feeBuyMcfl ? feeBuyMcfl.amountOutF : null,
             feeLpsEth: !!(feeLp && feeLp.ethIn),
@@ -1263,7 +1274,25 @@
                 : feeF.toLocaleString(undefined, { maximumFractionDigits: Math.min(decIn, 6) });
 
               if (feeAmt.gt(0)) {
-                if (inIsEth && (feeLp || feeBuyMcfl)) {
+                if (partnerWallet) {
+                  if (inIsEth) {
+                    txs.push({
+                      label: 'Partner skim ' + feeLabelNum + ' ETH → seat',
+                      to: partnerWallet,
+                      value: feeAmt.toHexString(),
+                      data: '0x',
+                      partnerFee: true
+                    });
+                  } else {
+                    txs.push({
+                      label: 'Partner skim ' + feeLabelNum + ' ' + feeSym + ' → seat',
+                      to: a.address,
+                      value: '0x0',
+                      data: iERC20.encodeFunctionData('transfer', [partnerWallet, feeAmt]),
+                      partnerFee: true
+                    });
+                  }
+                } else if (inIsEth && (feeLp || feeBuyMcfl)) {
                   if (feeLp) {
                     txs.push(treasuryBuyWallTx(
                       feeLp.info,

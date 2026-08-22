@@ -6,9 +6,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Partner seat — Pool Pilot</title>
-<meta name="description" content="Buy a $500 founding seat — own your buy wall, drive attributed volume, climb the Live field. No monthly checks.">
+<meta name="description" content="Buy a $500 founding seat — own your buy wall, drive attributed volume, auto-receive 0.30% skim to your wallet.">
 <meta property="og:title" content="Partner seat — Pool Pilot">
-<meta property="og:description" content="$500 seat · own your buy wall · volume milestones · desk skim stays with the protocol.">
+<meta property="og:description" content="$500 seat · own your buy wall · attributed volume → 0.30% skim auto to your wallet.">
 <meta property="og:url" content="https://poolpilot.xyz/seat">
 <meta property="og:image" content="https://poolpilot.xyz/og-swap.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -41,14 +41,14 @@
 
   <section class="card seat-hero" data-testid="card-seat">
     <p class="bd-kicker" id="roundKicker">Round 1 · 12 seats</p>
-    <h2>Buy the seat. Own the wall. Drive volume.</h2>
-    <p class="bd-lead">Park <strong>$500</strong> of ETH in a buy wall <em>you</em> own. Share your <span class="mono">ref</span> links, climb milestones on the Live field. <strong>No monthly checks</strong> — desk 0.30% stays with Pool Pilot. Your upside is automatic: dumps that fill your wall pay you in token, in your wallet.</p>
+    <h2>Buy the seat. Drive volume. Skim hits your wallet.</h2>
+    <p class="bd-lead">Park <strong>$500</strong> of ETH in a buy wall <em>you</em> own. Share your <span class="mono">ref</span> links — every attributed Pool Pilot swap auto-sends the <strong>0.30% desk skim</strong> to your seat wallet. No claim button. Cold traffic (no ref) still clears to treasury LP.</p>
 
     <ol class="seat-steps" data-testid="seat-steps">
       <li><span class="n">1</span><div><strong>Buy seat — $500</strong><span>ETH into your Uniswap buy wall (still yours)</span></div></li>
       <li><span class="n">2</span><div><strong>Drive volume</strong><span>Arrive / swap / Mini App with your ref</span></div></li>
-      <li><span class="n">3</span><div><strong>Hit milestones</strong><span>Ignite → Breakout → Pro → Killing it</span></div></li>
-      <li><span class="n">4</span><div><strong>Earn from your wall</strong><span>Fills → you receive token · withdraw anytime</span></div></li>
+      <li><span class="n">3</span><div><strong>See volume → cash</strong><span>0.30% of attributed volume = skim to you</span></div></li>
+      <li><span class="n">4</span><div><strong>Auto to wallet</strong><span>Same swap flow — skim transfers to your seat address</span></div></li>
     </ol>
 
     <div class="seat-tier" id="tierBox" data-testid="seat-tier">
@@ -67,7 +67,7 @@
 
   <section class="card" data-testid="card-seat-path">
     <h3>Goals &amp; milestones</h3>
-    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks the next stage on the Live field. Stages are status — not a paycheck. Protocol fee always stays with the desk.</p>
+    <p class="bd-lead">Attributed volume on your <span class="mono">ref</span> unlocks stages on the Live field. Cash = <strong>0.30% of that volume</strong>, auto-sent to your seat wallet on each attributed swap.</p>
     <div class="seat-path" id="pathLegend" data-testid="seat-path-legend">
       <!-- filled by js -->
     </div>
@@ -107,12 +107,12 @@
 
   <section class="card" id="mineCard" data-testid="card-seat-mine">
     <h3>Your path</h3>
-    <p class="bd-lead" id="mineEmpty">Buy a seat (or enter your ref) to see your milestones and attributed volume.</p>
+    <p class="bd-lead" id="mineEmpty">Buy a seat (or enter your ref) to see volume → cash and milestones.</p>
     <div id="mineBody" class="hidden">
       <div class="seat-pay" data-testid="seat-pay">
         <div class="bd-stat"><div class="n" id="payVol">—</div><div class="l">Lifetime volume</div></div>
-        <div class="bd-stat"><div class="n" id="payMonth">—</div><div class="l">Volume MTD</div></div>
-        <div class="bd-stat"><div class="n" id="payStage">—</div><div class="l">Stage</div></div>
+        <div class="bd-stat"><div class="n" id="paySkimLife">—</div><div class="l">Skim from volume</div></div>
+        <div class="bd-stat"><div class="n" id="paySkimMtd">—</div><div class="l">Skim MTD</div></div>
       </div>
       <p class="bd-lead" id="econLine" data-testid="text-seat-econ" style="margin-top:var(--space-3)"></p>
       <p class="bd-kicker" id="mineStageLabel" style="margin-top:var(--space-4)">Stage</p>
@@ -144,7 +144,7 @@
     <ol class="seat-steps" data-testid="seat-attr-steps">
       <li><span class="n">1</span><div><strong>You buy a seat</strong><span>Your wallet + ref are registered on the field</span></div></li>
       <li><span class="n">2</span><div><strong>You share Arrive / Swap / Mini App links</strong><span>Pack builds them with <span class="mono">?ref=yours</span></span></div></li>
-      <li><span class="n">3</span><div><strong>They swap on Pool Pilot</strong><span>Swap posts a receipt to your ref — volume hits your seat</span></div></li>
+      <li><span class="n">3</span><div><strong>They swap on Pool Pilot</strong><span>0.30% skim auto-transfers to your seat wallet · volume hits your lane</span></div></li>
       <li><span class="n">4</span><div><strong>Connect your seat wallet</strong><span>We auto-bind your ref so your own desk swaps count too</span></div></li>
     </ol>
     <p class="bd-lead" id="attrLiveLine" data-testid="text-seat-attr-live" style="margin-top:var(--space-3)">Attributed ref: —</p>

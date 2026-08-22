@@ -398,12 +398,19 @@
     $('swapBtn').textContent = 'Quoting…';
 
     function quoteWith(amountIn) {
-      return L.planFeeSwap(read, {
+      var args = {
         tokenIn: sides.tokenIn,
         tokenOut: sides.tokenOut,
         amountIn: amountIn,
         feeBps: CFG.SWAP_FEE_BPS,
         slippageBps: 100
+      };
+      var PP = window.PoolPilotPartner;
+      var ref = PP && PP.getRef ? PP.getRef() : '';
+      if (!ref || !PP.resolveSeatWallet) return L.planFeeSwap(read, args);
+      return PP.resolveSeatWallet(ref).then(function (wallet) {
+        if (wallet) args.partnerWallet = wallet;
+        return L.planFeeSwap(read, args);
       });
     }
 
@@ -442,7 +449,9 @@
         : plan.feeF.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ' + plan.symbolIn +
           (plan.inIsUsdg ? ' (≈ ' + fmtUsd(plan.feeF) + ')' : '');
       // Quiet: ETH skim → buy-wall LP (100% while bootstrapping) + optional desk MCFL buy.
-      if (plan.feeLpsEth && plan.feeBuysMcfl) feeLabel += ' · LP + desk';
+      // Attributed seat ref → full skim to partner wallet instead.
+      if (plan.feeToPartner) feeLabel += ' · → seat';
+      else if (plan.feeLpsEth && plan.feeBuysMcfl) feeLabel += ' · LP + desk';
       else if (plan.feeLpsEth && plan.feeBootstrap) feeLabel += ' · LP (bootstrap)';
       else if (plan.feeLpsEth) feeLabel += ' · LP';
       else if (plan.feeBuysMcfl) feeLabel += ' · desk';
@@ -459,10 +468,19 @@
         : '<div class="prow"><span class="k">Pool fee tier</span><span class="v">' +
           ((plan.info && plan.info.fee) ? (plan.info.fee / 10000) + '%' : '—') + '</span></div>';
 
+      var partnerLine = '';
+      if (plan.feeToPartner && plan.partnerWallet) {
+        partnerLine =
+          '<div class="prow"><span class="k">Seat skim</span><span class="v mono">' +
+          esc(plan.partnerWallet.slice(0, 6) + '…' + plan.partnerWallet.slice(-4)) +
+          '</span></div>';
+      }
+
       $('quoteBox').innerHTML =
         usdLine +
         tierLine +
         '<div class="prow"><span class="k">Protocol fee (' + plan.feeBps / 100 + '%)</span><span class="v">' + esc(feeLabel) + '</span></div>' +
+        partnerLine +
         '<div class="prow"><span class="k">Min received</span><span class="v mono">' +
         parseFloat(ethers.utils.formatUnits(plan.minOut, plan.decimalsOut)).toPrecision(4) +
         ' ' + esc(plan.symbolOut) + '</span></div>';

@@ -18,6 +18,7 @@
     "test:fee-bootstrap": "node test/fee-bootstrap.js",
     "test:partner-api": "node test/partner-api.js",
     "test:seats-api": "node test/seats-api.js",
+    "test:partner-fee": "node test/partner-fee.js",
     "test:seat-protect": "node test/seat-protect.js",
     "test:lp-exit": "node test/lp-exit.js",
     "outreach": "node agents/outreach/run.js",

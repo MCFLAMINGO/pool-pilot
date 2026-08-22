@@ -39,8 +39,9 @@ const ROUNDS = {
 
 /**
  * Volume stages — status ladder on attributed volume.
- * No cash payouts, skim rebates, or stage stipends from treasury.
- * Partner economics = own buy-wall NFT only. Desk 0.30% stays house (LP depth).
+ * Cash: attributed desk skim (0.30%) auto-transfers to the seat wallet on each
+ * attributed swap (same tx flow the trader signs). No manual payouts.
+ * Unattributed / house volume skim stays treasury → buy-wall LP.
  */
 const SKIM_BPS = 30;
 const STAGES = [
@@ -48,7 +49,7 @@ const STAGES = [
     id: 'seated',
     name: 'Seated',
     volumeUsd: 0,
-    blurb: 'ETH parked in your buy wall. Drive volume with your ref.'
+    blurb: 'ETH parked in your buy wall. Share your ref — attributed skim hits your wallet.'
   },
   {
     id: 'ignite',
@@ -76,16 +77,18 @@ const STAGES = [
   }
 ];
 
-/** Honest economics: no partner cash from treasury. */
+/** Partner cash = automatic on-chain skim to seat wallet (not a payroll check). */
 const ECONOMICS = {
-  partnerCash: false,
-  deskSkimTo: 'treasury',
-  partnerEarns: 'own_buy_wall_nft',
+  partnerCash: true,
+  mode: 'auto_wallet_skim',
+  deskSkimBps: SKIM_BPS,
+  partnerSkimShareBps: 10000,
+  deskSkimTo: 'seat_wallet_when_ref',
+  partnerEarns: 'auto_skim_plus_buy_wall',
   note:
-    'No monthly checks, skim rebates, or stage bonuses. Desk 0.30% always stays with Pool Pilot (buy-wall LP / treasury). Your upside is the Uniswap NFT you own — dumps that fill your wall pay you in token, automatically.'
+    'Attributed swaps auto-send the full 0.30% desk skim to your seat wallet in the swap flow — no claim button, no monthly check. Cold traffic (no ref) still clears to treasury LP. You also keep your buy-wall NFT.'
 };
 
-/** @deprecated kept empty so old clients don’t invent pay. */
 const INCENTIVE_POOL = {
   round1BudgetUsd: 0,
   note: ECONOMICS.note
@@ -275,6 +278,8 @@ function stageForVolume(workUsd) {
 
 function pathForSeat(workUsd, monthUsd) {
   const { stage, next, progressToNext, stageIndex } = stageForVolume(workUsd || 0);
+  const skimLife = ((workUsd || 0) * SKIM_BPS) / 10000;
+  const skimMtd = ((monthUsd || 0) * SKIM_BPS) / 10000;
   const milestones = STAGES.map((s) => ({
     id: s.id,
     name: s.name,
@@ -293,12 +298,13 @@ function pathForSeat(workUsd, monthUsd) {
     workUsd: workUsd || 0,
     monthUsd: monthUsd || 0,
     skimBps: SKIM_BPS,
-    // Desk skim is not partner pay — kept for display of protocol fee size only.
-    deskSkimOnMonthUsd: ((monthUsd || 0) * SKIM_BPS) / 10000,
-    skimMtdUsd: 0,
+    /** Cash your attributed volume contributes (0.30%) — auto to seat wallet. */
+    skimLifetimeUsd: skimLife,
+    skimMtdUsd: skimMtd,
+    deskSkimOnMonthUsd: skimMtd,
     monthlyBonusUsd: 0,
-    monthlyEstUsd: 0,
-    partnerCash: false,
+    monthlyEstUsd: skimMtd,
+    partnerCash: true,
     economics: ECONOMICS,
     milestones
   };
@@ -461,10 +467,11 @@ async function getBoard(opts) {
     roundBoard,
     mine,
     attribution: {
-      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref. No ref → invisible house (ops-only). Desk 0.30% always stays treasury — attribution is for the Live field, not a cash split.',
+      how: 'Swaps with ?ref= (or sticky pp_ref) credit that seat. Desk 0.30% on attributed swaps auto-transfers to the seat wallet in the swap flow. No ref → treasury LP (house).',
       autoBindWallet: true,
+      autoSkimToSeat: true,
       skimBps: SKIM_BPS,
-      partnerCash: false,
+      partnerCash: true,
       houseRef: eventsStore.HOUSE_REF,
       housePublic: false
     },

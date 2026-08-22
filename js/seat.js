@@ -190,7 +190,7 @@
     var note =
       (board.economics && board.economics.note) ||
       (board.incentivePool && board.incentivePool.note) ||
-      'No partner cash from treasury. Desk 0.30% stays with Pool Pilot. You earn when your buy wall fills.';
+      'Attributed 0.30% skim auto-sends to your seat wallet. Cold traffic clears to treasury LP.';
     $('incentiveNote').textContent = note;
   }
 
@@ -262,7 +262,8 @@
         '<div class="mono" style="font-size:0.75rem;color:var(--text-muted)">' +
         esc(short(s.wallet)) + ' · seat ' + fmtUsd(s.usd) + '</div></div>' +
         '<div style="text-align:right"><div>' + fmtUsd(s.workUsd) + ' vol</div>' +
-        '<div class="mono" style="font-size:0.75rem">MTD ' + fmtUsd(s.monthUsd) + '</div></div>' +
+        '<div class="mono" style="font-size:0.75rem">skim ' + fmtUsd(path.skimLifetimeUsd != null ? path.skimLifetimeUsd : path.skimMtdUsd) +
+        ' · MTD ' + fmtUsd(s.monthUsd) + '</div></div>' +
         '</div>' +
         '<div class="seat-lane-bar"><i style="width:' + pctBar.toFixed(1) + '%"></i></div>' +
         '<div class="seat-lane-marks">' + marks + '</div>' +
@@ -302,14 +303,14 @@
     $('mineBody').classList.remove('hidden');
     var path = mine.path || {};
     if ($('payVol')) $('payVol').textContent = fmtUsd(path.workUsd);
-    if ($('payMonth')) $('payMonth').textContent = fmtUsd(path.monthUsd);
+    if ($('paySkimLife')) $('paySkimLife').textContent = fmtUsd(path.skimLifetimeUsd != null ? path.skimLifetimeUsd : path.skimMtdUsd);
+    if ($('paySkimMtd')) $('paySkimMtd').textContent = fmtUsd(path.skimMtdUsd);
     var stage = path.stage || {};
-    if ($('payStage')) $('payStage').textContent = stage.name || 'Seated';
     if ($('econLine')) {
       $('econLine').textContent =
         (path.economics && path.economics.note) ||
         (board.economics && board.economics.note) ||
-        'No monthly payout. Desk skim stays with Pool Pilot. Your wall is your upside.';
+        'Volume × 0.30% = skim auto-sent to your seat wallet on each attributed swap.';
     }
     $('mineStageLabel').textContent = 'Stage · ' + (stage.name || 'Seated');
     var ms = path.milestones || [];
@@ -329,9 +330,9 @@
       var need = Math.max(0, path.nextStage.volumeUsd - (path.workUsd || 0));
       $('mineNextLine').textContent =
         'Next: ' + path.nextStage.name + ' at ' + fmtVol(path.nextStage.volumeUsd) +
-        ' — ' + fmtUsd(need) + ' volume to go.';
+        ' — ' + fmtUsd(need) + ' volume to go · skim keeps auto-sending meanwhile.';
     } else {
-      $('mineNextLine').textContent = 'Top milestone reached. Keep links live to stay on the field.';
+      $('mineNextLine').textContent = 'Top milestone reached. Keep links live — skim still auto-sends.';
     }
 
     $('mineWallet').textContent = mine.wallet;
