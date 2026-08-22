@@ -55,26 +55,11 @@
     <div id="arriveBanner" class="banner ok hidden" data-testid="banner-from-relay" style="margin-bottom:var(--space-3)"></div>
     <div id="attrBanner" class="banner ok hidden" data-testid="banner-attr-ref" style="margin-bottom:var(--space-3)"></div>
 
-    <div class="fund-desk" id="fundDesk" data-testid="fund-desk">
-      <button type="button" class="fund-desk-toggle" id="fundToggle" aria-expanded="true" data-testid="button-fund-toggle">
-        <span class="fund-desk-kicker">Fund this desk</span>
-        <span class="fund-desk-title">Need ETH or USDG on Robinhood?</span>
-        <span class="fund-desk-chev" aria-hidden="true">▾</span>
-      </button>
-      <div class="fund-desk-body" id="fundBody" data-testid="fund-body">
-        <p class="fund-desk-copy">Stay here. Bridge ETH with Relay (card/fiat → ETH on your usual apps), come back to this tab, then buy USDG on this desk. We don’t sell USDG — we sell the path.</p>
-        <div class="fund-presets" id="fundPresets" role="group" aria-label="Fund amount">
-          <button type="button" class="chip is-active" data-fund-usd="25">$25</button>
-          <button type="button" class="chip" data-fund-usd="50">$50</button>
-          <button type="button" class="chip" data-fund-usd="100">$100</button>
-          <button type="button" class="chip" data-fund-usd="250">$250</button>
-        </div>
-        <div class="fund-actions">
-          <a class="btn btn-primary" id="fundRelayBtn" href="https://relay.link/bridge/robinhood?fromChainId=1" target="_blank" rel="noopener" data-testid="button-fund-relay">1 · Bridge ETH to RH</a>
-          <button type="button" class="btn btn-ghost" id="fundUsdgBtn" data-testid="button-fund-usdg">2 · Buy USDG here (ETH → USDG)</button>
-        </div>
-        <p class="fund-desk-fine">Also fine: Robinhood / Coinbase → withdraw ETH to RH, then step 2. Third-party onramps can deep-link back to this swap later.</p>
-      </div>
+    <div class="buy-usdg" data-testid="buy-usdg">
+      <span class="buy-usdg-label">Buy USDG</span>
+      <span class="buy-usdg-hint">USD → USDG</span>
+      <a class="btn btn-primary" id="buyUsdgRh" href="https://robinhood.com/us/en/crypto/USDG/" target="_blank" rel="noopener" data-testid="link-buy-usdg-robinhood">Robinhood</a>
+      <a class="btn btn-ghost" id="buyUsdgMoon" href="https://buy.moonpay.com/?currencyCode=usdg_robinhood&amp;baseCurrencyCode=usd" target="_blank" rel="noopener" data-testid="link-buy-usdg-moonpay">MoonPay</a>
     </div>
 
     <div class="swap-side">

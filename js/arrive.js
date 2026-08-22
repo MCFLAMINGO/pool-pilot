@@ -37,10 +37,8 @@
 
   var relayBtn = document.getElementById('relayBtn');
   var swapBtn = document.getElementById('swapBtn');
-  var swapUsdgBtn = document.getElementById('swapUsdgBtn');
   if (relayBtn) relayBtn.href = relayHref();
   if (swapBtn) swapBtn.href = swapHref({});
-  if (swapUsdgBtn) swapUsdgBtn.href = swapHref({ fund: 'usdg', in: 'eth', to: 'usdg' });
 
   function setCheck(id, state, text) {
     var li = document.getElementById(id);
