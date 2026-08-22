@@ -89,7 +89,7 @@
   }
 
   function communityTokens() {
-    return allTokens().filter(function (t) { return t.community; });
+    return allTokens().filter(function (t) { return t.community && !t.featured; });
   }
 
   function chipHtml(t, opts) {
