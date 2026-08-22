@@ -66,6 +66,6 @@ npm run server          # Express on :8787 (PORT / API_PORT)
 # Optional write gate: PARTNER_INGEST_KEY → clients send X-Partner-Key
 ```
 
-Seats (`/seat`): Round 1 buy-in **$100–$500** (15 seats); Round 2 **$1,000–$5,000** when R1 fills / raise / attributed volume clears thresholds. ETH mints a **user-owned** Uniswap v3 buy wall. Share board = **60% capital + 40% attributed volume**.
+Seats (`/seat`): Round 1 **$500 × 12 seats**; Round 2 **$1k–$5k** when R1 fills / raise / volume. Path: Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M). Monthly pay = stage bonus + 100% of attributed 0.30% skim. ETH stays in the user’s buy-wall NFT; bonuses from treasury partner incentive pool.
 
 On Vercel, `api/[...path].js` serves the same routes under `/api/*` (same origin as the static site). Locally, serve the static site on :3000 and the API on :8787 — `partnerLib` points localhost pages at `http://127.0.0.1:8787`.

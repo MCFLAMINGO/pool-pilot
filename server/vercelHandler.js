@@ -124,7 +124,11 @@ async function handler(req, res) {
         seatsLeft: board.seatsLeft,
         open: board.open,
         totalAttributedVolumeUsd: board.totalAttributedVolumeUsd,
-        advance: board.advance
+        advance: board.advance,
+        stages: board.stages,
+        pathLegend: board.pathLegend,
+        skimBps: board.skimBps,
+        incentivePool: board.incentivePool
       });
     }
 

@@ -57,11 +57,13 @@ npm run test:partner-api
 
 ### Partner seats (`/seat`)
 
-Plug-and-play KOL / community seats:
+1. Round 1: **$500 × 12 seats** → user-owned Uniswap v3 buy wall  
+2. **Path / milestones:** Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M)  
+3. **Monthly pay:** stage bonus + 100% of attributed desk skim (0.30%)  
+4. Live field shows every seat’s volume and stage side by side  
+5. Round 2 ($1k–$5k) when R1 fills / raise / volume clears the bar  
 
-1. Round 1 buy-in **$100–$500** ETH → user-owned Uniswap v3 buy wall (default MCFL)
-2. Round 2 **$1,000–$5,000** when Round 1 fills (15 seats), raise, or attributed volume clears the bar
-3. Board shows **where ETH is** (wallet, pool, mint tx) and **share** = 60% capital + 40% attributed volume
+Bonuses come from a treasury **partner incentive pool** — not from the seat ETH (that stays in their NFT).
 
 ```bash
 npm run test:seats-api

@@ -101,7 +101,11 @@ function createApp() {
         seatsLeft: board.seatsLeft,
         open: board.open,
         totalAttributedVolumeUsd: board.totalAttributedVolumeUsd,
-        advance: board.advance
+        advance: board.advance,
+        stages: board.stages,
+        pathLegend: board.pathLegend,
+        skimBps: board.skimBps,
+        incentivePool: board.incentivePool
       });
     } catch (e) {
       res.status(500).json({ ok: false, error: String(e && e.message) });
