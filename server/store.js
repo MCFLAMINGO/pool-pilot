@@ -13,12 +13,26 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const FILE_PATH = path.join(DATA_DIR, 'partner-events.json');
 const MAX_EVENTS = 5000;
 
+/** Invisible house bucket for cold / natural traffic (not a partner seat). */
+const HOUSE_REF = 'poolpilot';
+
 function cleanRef(raw) {
   return String(raw || '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_-]/g, '')
     .slice(0, 32);
+}
+
+function isHouseRef(ref) {
+  const r = cleanRef(ref);
+  return !r || r === HOUSE_REF;
+}
+
+/** Empty ref → house. Partner refs pass through unchanged. */
+function resolveAttrRef(raw) {
+  const r = cleanRef(raw);
+  return r || HOUSE_REF;
 }
 
 function cleanToken(raw) {
@@ -107,7 +121,8 @@ function normalizeEvent(input, meta) {
   return {
     t: Date.now(),
     kind: String((input && input.kind) || 'swap').slice(0, 32),
-    ref: cleanRef(input && input.ref),
+    // Cold traffic (no sticky partner ref) lands in the invisible house bucket.
+    ref: resolveAttrRef(input && input.ref),
     token: cleanToken(input && input.token),
     symbol: cleanSymbol(input && input.symbol),
     usd: usdRaw != null && isFinite(usdRaw) && usdRaw >= 0 ? usdRaw : null,
@@ -118,8 +133,10 @@ function normalizeEvent(input, meta) {
 }
 
 async function insertEvent(input, meta) {
+  const rawRef = cleanRef(input && input.ref);
   const row = normalizeEvent(input, meta);
-  if (!row.ref && !row.hash && !row.token) {
+  // Allow house attribution for cold swaps, but still need a tx or token signal.
+  if (!rawRef && !row.hash && !row.token) {
     const err = new Error('Need ref, token, or hash');
     err.status = 400;
     throw err;
@@ -239,6 +256,9 @@ async function health() {
 }
 
 module.exports = {
+  HOUSE_REF,
+  isHouseRef,
+  resolveAttrRef,
   cleanRef,
   cleanToken,
   cleanSymbol,

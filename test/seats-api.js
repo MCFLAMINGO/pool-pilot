@@ -64,6 +64,7 @@ async function main() {
   delete process.env.POSTGRES_URL;
   delete process.env.LOCAL_INTEL_DB_URL;
   delete process.env.PARTNER_INGEST_KEY;
+  delete process.env.HOUSE_VIEW_KEY;
 
   if (!fs.existsSync(DATA)) fs.mkdirSync(DATA, { recursive: true });
   backup(SEATS, BAK_S);
@@ -166,6 +167,47 @@ async function main() {
       'alice ahead on volume',
       all.json.board[0].ref === 'alice' && all.json.board[0].workUsd >= 30000
     );
+
+    const reserved = await req(port, 'POST', '/api/seats', {
+      ref: 'poolpilot',
+      wallet: '0x3333333333333333333333333333333333333333',
+      usd: 500,
+      hash: '0x' + 'dd'.repeat(32)
+    });
+    check('rejects house ref seat', reserved.status === 400);
+
+    const cold = await req(port, 'POST', '/api/events', {
+      kind: 'swap',
+      ref: '',
+      usd: 12000,
+      hash: '0x' + 'ee'.repeat(32),
+      symbol: 'MCFL'
+    });
+    check('cold swap accepted', cold.status === 201 && cold.json.ok);
+    check('cold → house ref', cold.json.event && cold.json.event.ref === 'poolpilot');
+
+    const leak = await req(port, 'GET', '/api/stats/poolpilot');
+    check('house stats hidden', leak.status === 404);
+
+    const pubBoard = await req(port, 'GET', '/api/seats');
+    check(
+      'house not on live field',
+      Array.isArray(pubBoard.json.board) &&
+        !pubBoard.json.board.some((s) => s.ref === 'poolpilot')
+    );
+
+    const noKey = await req(port, 'GET', '/api/ops/reach');
+    check('reach needs key when unset → 503', noKey.status === 503);
+
+    process.env.HOUSE_VIEW_KEY = 'house-secret';
+    const badKey = await req(port, 'GET', '/api/ops/reach?key=wrong');
+    check('reach bad key 401', badKey.status === 401);
+    const reach = await req(port, 'GET', '/api/ops/reach?key=house-secret');
+    check('reach ok', reach.status === 200 && reach.json.ok);
+    check('reach house vol', reach.json.house && reach.json.house.volumeUsd >= 12000);
+    check('reach partner vol', reach.json.partners && reach.json.partners.volumeUsd >= 30000);
+    check('natural share set', reach.json.naturalShare > 0 && reach.json.naturalShare < 1);
+    delete process.env.HOUSE_VIEW_KEY;
   } finally {
     await new Promise((r) => server.close(r));
     restore(SEATS, BAK_S);
