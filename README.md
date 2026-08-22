@@ -59,11 +59,9 @@ npm run test:partner-api
 
 1. Round 1: **$500 × 12 seats** → user-owned Uniswap v3 buy wall  
 2. **Path / milestones:** Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M)  
-3. **Monthly pay:** stage bonus + 100% of attributed desk skim (0.30%)  
-4. Live field shows every seat’s volume and stage side by side  
+3. **No partner cash** — desk 0.30% always stays treasury / buy-wall LP; stages are Live-field status  
+4. Partner upside = own NFT (dumps that fill the wall pay them in token, automatically)  
 5. Round 2 ($1k–$5k) when R1 fills / raise / volume clears the bar  
-
-Bonuses come from a treasury **partner incentive pool** — not from the seat ETH (that stays in their NFT).
 
 ```bash
 npm run test:seats-api

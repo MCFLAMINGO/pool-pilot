@@ -133,9 +133,10 @@ async function main() {
     const board = await req(port, 'GET', '/api/seats?ref=alice');
     check('mine has path', board.json.mine && board.json.mine.path);
     check('alice ignite', board.json.mine.path.stage.id === 'ignite');
-    check('monthly bonus 200', board.json.mine.path.monthlyBonusUsd === 200);
-    check('skim mtd', Math.abs(board.json.mine.path.skimMtdUsd - 90) < 0.01);
-    check('est month 290', Math.abs(board.json.mine.path.monthlyEstUsd - 290) < 0.01);
+    check('no partner cash', board.json.mine.path.partnerCash === false);
+    check('no monthly est', board.json.mine.path.monthlyEstUsd === 0);
+    check('no skim rebate', board.json.mine.path.skimMtdUsd === 0);
+    check('economics note', board.json.economics && board.json.economics.partnerCash === false);
     check('milestone reached ignite', board.json.mine.path.milestones.some((m) => m.id === 'ignite' && m.reached));
     check('board lists all seats', Array.isArray(board.json.board) && board.json.board.length === 1);
     check('seatsTakenAll', board.json.seatsTakenAll === 1);

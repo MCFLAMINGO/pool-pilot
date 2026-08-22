@@ -38,9 +38,9 @@ const ROUNDS = {
 };
 
 /**
- * Volume stages → monthly partner pay (professional ladder, carnival-clear).
- * monthlyBonusUsd = stipend while you hold this stage (lifetime attributed volume).
- * Plus 100% of attributed desk skim (0.30%) on month-to-date volume.
+ * Volume stages — status ladder on attributed volume.
+ * No cash payouts, skim rebates, or stage stipends from treasury.
+ * Partner economics = own buy-wall NFT only. Desk 0.30% stays house (LP depth).
  */
 const SKIM_BPS = 30;
 const STAGES = [
@@ -48,44 +48,47 @@ const STAGES = [
     id: 'seated',
     name: 'Seated',
     volumeUsd: 0,
-    monthlyBonusUsd: 0,
     blurb: 'ETH parked in your buy wall. Drive volume with your ref.'
   },
   {
     id: 'ignite',
     name: 'Ignite',
     volumeUsd: 25000,
-    monthlyBonusUsd: 200,
-    blurb: 'First real traction — bonus unlocks on the monthly check.'
+    blurb: 'First real traction on your links.'
   },
   {
     id: 'breakout',
     name: 'Breakout',
     volumeUsd: 100000,
-    monthlyBonusUsd: 700,
-    blurb: 'Clear early goal. Monthly check steps up.'
+    blurb: 'Clear early goal — field can see it.'
   },
   {
     id: 'pro',
     name: 'Pro',
     volumeUsd: 500000,
-    monthlyBonusUsd: 2500,
-    blurb: 'Habit volume. This is a real partner month.'
+    blurb: 'Habit volume. Serious partner lane.'
   },
   {
     id: 'killing',
     name: 'Killing it',
     volumeUsd: 2000000,
-    monthlyBonusUsd: 8000,
     blurb: 'Top of the ladder — keep the links live.'
   }
 ];
 
-/** Treasury partner-incentive pool (funds stage bonuses). Not taken from seat ETH. */
-const INCENTIVE_POOL = {
-  round1BudgetUsd: 20000,
+/** Honest economics: no partner cash from treasury. */
+const ECONOMICS = {
+  partnerCash: false,
+  deskSkimTo: 'treasury',
+  partnerEarns: 'own_buy_wall_nft',
   note:
-    'Stage bonuses are paid from Pool Pilot’s partner incentive pool (treasury), separate from your seat ETH — that ETH stays in your Uniswap position.'
+    'No monthly checks, skim rebates, or stage bonuses. Desk 0.30% always stays with Pool Pilot (buy-wall LP / treasury). Your upside is the Uniswap NFT you own — dumps that fill your wall pay you in token, automatically.'
+};
+
+/** @deprecated kept empty so old clients don’t invent pay. */
+const INCENTIVE_POOL = {
+  round1BudgetUsd: 0,
+  note: ECONOMICS.note
 };
 
 const CAPITAL_WEIGHT = 0.6;
@@ -272,14 +275,11 @@ function stageForVolume(workUsd) {
 
 function pathForSeat(workUsd, monthUsd) {
   const { stage, next, progressToNext, stageIndex } = stageForVolume(workUsd || 0);
-  const skimMtd = ((monthUsd || 0) * SKIM_BPS) / 10000;
-  const monthlyBonusUsd = stage.monthlyBonusUsd || 0;
-  const monthlyEstUsd = monthlyBonusUsd + skimMtd;
-  const milestones = STAGES.map((s, i) => ({
+  const milestones = STAGES.map((s) => ({
     id: s.id,
     name: s.name,
     volumeUsd: s.volumeUsd,
-    monthlyBonusUsd: s.monthlyBonusUsd,
+    monthlyBonusUsd: 0,
     blurb: s.blurb,
     reached: (workUsd || 0) >= s.volumeUsd,
     current: s.id === stage.id,
@@ -293,9 +293,13 @@ function pathForSeat(workUsd, monthUsd) {
     workUsd: workUsd || 0,
     monthUsd: monthUsd || 0,
     skimBps: SKIM_BPS,
-    skimMtdUsd: skimMtd,
-    monthlyBonusUsd,
-    monthlyEstUsd,
+    // Desk skim is not partner pay — kept for display of protocol fee size only.
+    deskSkimOnMonthUsd: ((monthUsd || 0) * SKIM_BPS) / 10000,
+    skimMtdUsd: 0,
+    monthlyBonusUsd: 0,
+    monthlyEstUsd: 0,
+    partnerCash: false,
+    economics: ECONOMICS,
     milestones
   };
 }
@@ -444,23 +448,23 @@ async function getBoard(opts) {
     seatsByRound: byRound,
     stages: STAGES,
     skimBps: SKIM_BPS,
+    economics: ECONOMICS,
     incentivePool: INCENTIVE_POOL,
     pathLegend: STAGES.map((s) => ({
       id: s.id,
       name: s.name,
       volumeUsd: s.volumeUsd,
-      monthlyBonusUsd: s.monthlyBonusUsd,
-      blurb: s.blurb,
-      estAtVolume:
-        s.monthlyBonusUsd + (s.volumeUsd * SKIM_BPS) / 10000
+      monthlyBonusUsd: 0,
+      blurb: s.blurb
     })),
     board,
     roundBoard,
     mine,
     attribution: {
-      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref. No ref → invisible house (ops-only).',
+      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref. No ref → invisible house (ops-only). Desk 0.30% always stays treasury — attribution is for the Live field, not a cash split.',
       autoBindWallet: true,
       skimBps: SKIM_BPS,
+      partnerCash: false,
       houseRef: eventsStore.HOUSE_REF,
       housePublic: false
     },
@@ -557,6 +561,7 @@ module.exports = {
   ROUNDS,
   STAGES,
   SKIM_BPS,
+  ECONOMICS,
   INCENTIVE_POOL,
   CAPITAL_WEIGHT,
   WORK_WEIGHT,

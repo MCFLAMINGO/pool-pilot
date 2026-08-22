@@ -179,23 +179,19 @@
       return;
     }
     $('pathLegend').innerHTML = legend.map(function (s) {
-      var bonus = s.monthlyBonusUsd != null ? s.monthlyBonusUsd : s.monthlyBonusUsd;
       return (
         '<div class="seat-path-item">' +
         '<div class="seat-path-vol">' + esc(fmtVol(s.volumeUsd)) + ' vol</div>' +
         '<div><div class="seat-path-name">' + esc(s.name) + '</div>' +
         '<div class="seat-path-blurb">' + esc(s.blurb || '') + '</div></div>' +
-        '<div class="seat-path-pay">' + fmtUsd(bonus) + '/mo bonus' +
-        '<small>+ 100% of your 0.30% skim</small></div>' +
         '</div>'
       );
     }).join('');
-    if (board.incentivePool && board.incentivePool.note) {
-      $('incentiveNote').textContent = board.incentivePool.note;
-    } else {
-      $('incentiveNote').textContent =
-        'Stage bonuses come from Pool Pilot’s partner incentive pool (treasury). Your $500 ETH stays in your position.';
-    }
+    var note =
+      (board.economics && board.economics.note) ||
+      (board.incentivePool && board.incentivePool.note) ||
+      'No partner cash from treasury. Desk 0.30% stays with Pool Pilot. You earn when your buy wall fills.';
+    $('incentiveNote').textContent = note;
   }
 
   function renderRound(board) {
@@ -266,8 +262,7 @@
         '<div class="mono" style="font-size:0.75rem;color:var(--text-muted)">' +
         esc(short(s.wallet)) + ' · seat ' + fmtUsd(s.usd) + '</div></div>' +
         '<div style="text-align:right"><div>' + fmtUsd(s.workUsd) + ' vol</div>' +
-        '<div class="mono" style="font-size:0.75rem">MTD ' + fmtUsd(s.monthUsd) +
-        ' · ' + fmtUsd(path.monthlyEstUsd) + '/mo</div></div>' +
+        '<div class="mono" style="font-size:0.75rem">MTD ' + fmtUsd(s.monthUsd) + '</div></div>' +
         '</div>' +
         '<div class="seat-lane-bar"><i style="width:' + pctBar.toFixed(1) + '%"></i></div>' +
         '<div class="seat-lane-marks">' + marks + '</div>' +
@@ -306,10 +301,16 @@
     $('mineEmpty').classList.add('hidden');
     $('mineBody').classList.remove('hidden');
     var path = mine.path || {};
-    $('payMonth').textContent = fmtUsd(path.monthlyEstUsd);
-    $('payBonus').textContent = fmtUsd(path.monthlyBonusUsd);
-    $('paySkim').textContent = fmtUsd(path.skimMtdUsd);
+    if ($('payVol')) $('payVol').textContent = fmtUsd(path.workUsd);
+    if ($('payMonth')) $('payMonth').textContent = fmtUsd(path.monthUsd);
     var stage = path.stage || {};
+    if ($('payStage')) $('payStage').textContent = stage.name || 'Seated';
+    if ($('econLine')) {
+      $('econLine').textContent =
+        (path.economics && path.economics.note) ||
+        (board.economics && board.economics.note) ||
+        'No monthly payout. Desk skim stays with Pool Pilot. Your wall is your upside.';
+    }
     $('mineStageLabel').textContent = 'Stage · ' + (stage.name || 'Seated');
     var ms = path.milestones || [];
     $('mineMilestones').innerHTML = ms.map(function (m) {
@@ -321,7 +322,6 @@
         '<div class="' + cls + '">' +
         '<div><div class="ms-name">' + esc(m.name) + '</div>' +
         '<div class="ms-meta">' + esc(fmtVol(m.volumeUsd)) + ' attributed volume</div></div>' +
-        '<div class="ms-pay">' + fmtUsd(m.monthlyBonusUsd) + '/mo</div>' +
         '</div>'
       );
     }).join('');
@@ -329,9 +329,9 @@
       var need = Math.max(0, path.nextStage.volumeUsd - (path.workUsd || 0));
       $('mineNextLine').textContent =
         'Next: ' + path.nextStage.name + ' at ' + fmtVol(path.nextStage.volumeUsd) +
-        ' — ' + fmtUsd(need) + ' volume to go · then ' + fmtUsd(path.nextStage.monthlyBonusUsd) + '/mo bonus.';
+        ' — ' + fmtUsd(need) + ' volume to go.';
     } else {
-      $('mineNextLine').textContent = 'Top milestone reached. Keep volume live to hold Killing it pay.';
+      $('mineNextLine').textContent = 'Top milestone reached. Keep links live to stay on the field.';
     }
 
     $('mineWallet').textContent = mine.wallet;
