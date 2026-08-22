@@ -280,10 +280,13 @@
     } else {
       $('mineTx').textContent = '—';
     }
-    var withdrawHref = explorerAddr(mine.wallet) + '#token_transfers';
+    var withdrawHref = '/?token=' + encodeURIComponent(mine.token || ChainLib.CFG.MCFL);
     $('mineWithdraw').innerHTML =
-      '<a href="' + esc(withdrawHref) + '" target="_blank" rel="noopener">Your address on Blockscout</a> · decrease liquidity on the NFT';
-    if ($('mineWithdrawBtn')) $('mineWithdrawBtn').href = withdrawHref;
+      'One click below — pulls your seat NFT liquidity back to this wallet. Or open ' +
+      '<a href="' + esc(withdrawHref) + '" rel="noopener">Pool Pilot positions</a>.';
+    if ($('mineWithdrawBtn')) {
+      $('mineWithdrawBtn').dataset.token = mine.token || ChainLib.CFG.MCFL;
+    }
 
     var stageId = stage.id || 'seated';
     var adviceEl = $('mineStageAdvice');
@@ -503,7 +506,71 @@
     } else go();
   }
 
+  function withdrawSeatLp() {
+    showErr('');
+    if (S.busy) return;
+    var go = function () {
+      if (!S.wallet.chainOk) {
+        showErr('Switch to Robinhood Chain (4663) first.');
+        return;
+      }
+      var btn = $('mineWithdrawBtn');
+      var token = (btn && btn.dataset.token) || CFG.MCFL;
+      S.busy = true;
+      if (btn) { btn.disabled = true; btn.textContent = 'Reading…'; }
+      $('execBox').classList.remove('hidden');
+      $('execBox').textContent = 'Finding your LP positions…';
+
+      L.discoverPool(read, token).then(function (info) {
+        return L.fetchEthUsd().then(function (ethUsd) {
+          return L.readState(read, info, ethUsd, S.wallet.addr);
+        });
+      }).then(function (state) {
+        var plan = L.planExitPositions(state, S.wallet.addr);
+        if (!plan.txs.length) {
+          $('execBox').textContent = 'No live liquidity on this wallet for that pool.';
+          return;
+        }
+        $('execBox').textContent =
+          'Withdrawing ' + plan.summary.count + ' position(s)… confirm in wallet.';
+        var signer = S.wallet.provider.getSigner();
+        var chain = Promise.resolve();
+        plan.txs.forEach(function (t) {
+          chain = chain.then(function () {
+            return signer.sendTransaction({
+              to: t.to,
+              data: t.data,
+              value: t.value || '0x0'
+            }).then(function (tx) {
+              $('execBox').innerHTML =
+                'Submitted <a href="' + esc(explorerTx(tx.hash)) + '" target="_blank" rel="noopener">' +
+                esc(short(tx.hash)) + '</a> — waiting…';
+              return tx.wait();
+            });
+          });
+        });
+        return chain.then(function () {
+          $('execBox').innerHTML =
+            '<strong>LP withdrawn.</strong> Tokens are back in your wallet. Empty NFTs may remain.';
+        });
+      }).catch(function (e) {
+        showErr((e && e.message) || String(e));
+      }).then(function () {
+        S.busy = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Withdraw LP to wallet';
+        }
+      });
+    };
+
+    if (!S.wallet.addr) {
+      connect().then(go).catch(function (e) { showErr((e && e.message) || e); });
+    } else go();
+  }
+
   $('buyBtn').addEventListener('click', buySeat);
+  if ($('mineWithdrawBtn')) $('mineWithdrawBtn').addEventListener('click', withdrawSeatLp);
   $('refreshBtn').addEventListener('click', loadBoard);
   $('usd').addEventListener('input', updateEthPreview);
   $('ref').addEventListener('change', function () {

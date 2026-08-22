@@ -19,6 +19,7 @@
     "test:partner-api": "node test/partner-api.js",
     "test:seats-api": "node test/seats-api.js",
     "test:seat-protect": "node test/seat-protect.js",
+    "test:lp-exit": "node test/lp-exit.js",
     "outreach": "node agents/outreach/run.js",
     "outreach:tick": "node agents/outreach/run.js --tick",
     "outreach:live": "node agents/outreach/run.js --tick --live",

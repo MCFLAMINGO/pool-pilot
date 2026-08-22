@@ -570,10 +570,18 @@
       var fT = S.info.tokenIsToken1 ? p.fees1 : p.fees0;
       var fE = S.info.tokenIsToken1 ? p.fees0 : p.fees1;
       var active = p.liquidity !== '0';
-      return '<tr data-testid="row-position-' + p.id + '"><td>#' + p.id + (active ? '' : ' <span style="color:var(--text-faint)">(empty)</span>') + '</td>' +
+      var exitBtn = active
+        ? ' <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:0.75rem" data-exit-id="' + p.id + '" data-testid="button-exit-' + p.id + '">Withdraw</button>'
+        : '';
+      return '<tr data-testid="row-position-' + p.id + '"><td>#' + p.id + (active ? '' : ' <span style="color:var(--text-faint)">(empty)</span>') + exitBtn + '</td>' +
         '<td>' + L.fmtPrice(loP) + ' – ' + L.fmtPrice(hiP) + '</td>' +
         '<td>' + fmtTok(fT) + ' ' + esc(S.info.symbol) + ' + ' + fE.toFixed(5) + ' ETH</td></tr>';
     }).join('');
+    Array.prototype.forEach.call($('posRows').querySelectorAll('[data-exit-id]'), function (b) {
+      b.addEventListener('click', function () {
+        openExit([b.getAttribute('data-exit-id')]);
+      });
+    });
   }
 
   /* ---------------- render: moves ---------------- */
@@ -600,8 +608,23 @@
     if (feesUsd > 0.25) {
       defs.push({ id: 'collect', rec: false, title: 'Collect your earned fees', why: 'You have ' + fmtUsd(feesUsd) + ' of trading fees sitting unclaimed across your positions.', fx: 'Sends earned fees to your wallet', price: 'Free' });
     }
+    var livePos = st.positions && st.positions.list
+      ? st.positions.list.filter(function (p) {
+          try { return ethers.BigNumber.from(p.liquidity || '0').gt(0); } catch (e) { return false; }
+        }).length
+      : 0;
+    if (livePos > 0) {
+      defs.push({
+        id: 'exit',
+        rec: false,
+        title: 'Withdraw from LP',
+        why: 'Pull your ETH / ' + info.symbol + ' out of ' + livePos + ' Uniswap position' + (livePos === 1 ? '' : 's') + ' you own. One signature; tokens return to your wallet.',
+        fx: 'decreaseLiquidity + collect → your wallet',
+        price: 'Free'
+      });
+    }
     defs.push({ id: 'superchain', rec: false, title: 'Super Chain launch', why: 'Mint one LayerZero OFT wired across Solana, Base, and Robinhood Chain from day one — same supply everywhere, plus Robinhood app listing guidance. Hand-delivered within 72h or your fee is refunded on-chain.', fx: 'Multi-chain peers before public trading · receipt on-chain', price: '$25 in MCFL' });
-    return defs.slice(0, 4);
+    return defs.slice(0, 5);
   }
 
   function renderMoves() {
@@ -698,6 +721,7 @@
   function openMove(id) {
     showErr(null);
     if (id === 'collect') return openCollect();
+    if (id === 'exit') return openExit(null);
     if (id === 'omni' || id === 'superchain') return openOmni();
     if (!walletGate()) return;
     openModal('<h3>Loading preview…</h3><div class="skel" style="height:16px;margin:12px 0"></div><div class="skel" style="height:16px;width:70%"></div>');
@@ -841,6 +865,37 @@
     );
     $('mClose').addEventListener('click', closeModal);
     $('goBtn').addEventListener('click', function () { execute('Collect fees — ' + S.info.symbol, plan.txs); });
+  }
+
+  /* ---------------- move: exit LP (free) ---------------- */
+  function openExit(tokenIds) {
+    if (!walletGate()) return;
+    var st = S.state;
+    var plan = L.planExitPositions(st, S.wallet.addr, tokenIds ? { tokenIds: tokenIds } : {});
+    if (!plan.txs.length) {
+      openModal('<h3>Nothing to withdraw</h3><p class="msub">No live liquidity in your positions for this pool.</p><button class="btn btn-ghost btn-lg" id="mClose">Close</button>');
+      $('mClose').addEventListener('click', closeModal);
+      return;
+    }
+    var ids = (plan.summary.tokenIds || []).map(function (id) { return '#' + id; }).join(', ');
+    openModal(
+      '<h3>Withdraw from LP</h3>' +
+      '<p class="msub">Removes <strong>all</strong> liquidity from ' + plan.summary.count +
+      ' position' + (plan.summary.count === 1 ? '' : 's') +
+      ' (' + esc(ids) + ') and sends the tokens to your wallet. Free — one Uniswap multicall. WETH may show as wrapped ETH until you unwrap.</p>' +
+      '<div class="preview">' +
+      '<div class="prow"><span class="k">NFTs</span><span class="v mono">' + esc(ids) + '</span></div>' +
+      '<div class="prow"><span class="k">You sign</span><span class="v">1 transaction</span></div>' +
+      '<div class="prow"><span class="k">Custody</span><span class="v">You keep the empty NFT; capital returns to you</span></div></div>' +
+      '<button class="btn btn-primary btn-lg" id="goBtn" data-testid="button-execute-exit">Withdraw to wallet</button>' +
+      '<button class="btn btn-ghost btn-lg" id="mClose" style="margin-top:8px">Cancel</button>'
+    );
+    $('mClose').addEventListener('click', closeModal);
+    $('goBtn').addEventListener('click', function () {
+      execute('Withdraw LP — ' + S.info.symbol, plan.txs, function () {
+        return '<div class="banner ok">Liquidity withdrawn. Tokens are in your wallet — refresh the reading to confirm.</div>';
+      });
+    });
   }
 
   /* ---------------- move: Super Chain launch (manual OFT mesh) ---------------- */

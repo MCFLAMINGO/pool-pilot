@@ -92,6 +92,7 @@ npm run test:seats-api
 | **Deepen buy side** | WETH-only concentrated position from −10% to −35% of spot | You |
 | **Tighten the spread** | Two-sided position in a tight band around spot | You |
 | **Collect fees** | One `NPM.multicall` of `collect()` for every matching position | You |
+| **Withdraw from LP** | One `NPM.multicall` of `decreaseLiquidity` + `collect` per NFT (full exit) | You |
 | **Super Chain launch** | Fee payment + hand-delivered LayerZero OFT mesh (Solana + Base + Robinhood) | — |
 
 Each paid move costs $25. Fees are payable two ways:
