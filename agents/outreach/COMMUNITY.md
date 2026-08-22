@@ -11,20 +11,21 @@ https://poolpilot.xyz/pack?symbol=MCFL&token=0x21a91215fbfc4fc002b07cc87698a6fc0
 Stats / attributed receipts: https://poolpilot.xyz/partner?ref=yourcommunity  
 Seat (path + milestones): https://poolpilot.xyz/seat?ref=yourcommunity  
 **Path:** buy $500 seat → drive attributed volume → hit Ignite / Breakout / Pro / Killing it on the Live field.  
-**Earn:** your Uniswap buy-wall NFT (fills → you get token). **No** monthly checks, skim rebates, or stage bonuses from treasury.  
-(API: `GET /api/seats` · `pathLegend` + per-seat `path.milestones` · `economics.partnerCash: false`)  
+**Earn:** **0.30% desk skim auto-sends to your seat wallet** on each attributed swap (same flow the trader signs). Plus your Uniswap buy-wall NFT.  
+Cold / no-ref volume still clears to treasury LP.  
+(API: `GET /api/seats` · `economics.mode: auto_wallet_skim` · `path.skimLifetimeUsd` / `skimMtdUsd`)  
 Case study template: https://poolpilot.xyz/case?symbol=MCFL&token=0x…  
 Press kit: https://poolpilot.xyz/press
 
 ## How seats work
 Round 1: **$500** ETH into a buy wall **you own** (Uniswap NFT in your wallet).  
 Round 2: **$1,000–$5,000** when early seats fill or volume grows.  
-Share weight on the field = **60% capital + 40% attributed swap volume** from your links (status, not a cash split).  
-Desk 0.30% skim **always** goes to treasury / buy-wall LP — never rebated to seats.
+Share weight on the field = **60% capital + 40% attributed swap volume** from your links.  
+Desk 0.30% on **your** attributed swaps → **your wallet** (automatic). No ref → treasury / buy-wall LP.
 
-## How the desk earns (not partners)
-Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim strengthens the book first: while MCFL buy-side depth is still thin (< ~$10k ETH in pool), **100%** of the ETH skim goes into a treasury-owned **MCFL buy-wall LP**. After the pool is deeper, the mature split resumes (most LP + a quiet MCFL buy to treasury). Other input assets still transfer to treasury as-is.  
-Communities get a free Mini App link; seat holders climb the Live field when members trade through their ref.
+## How the desk earns
+Every swap skims **0.30%**. With a seat `ref`, that skim transfers to the seat wallet. Without a ref (natural reach), ETH skim strengthens the book: while MCFL buy-side depth is still thin (< ~$10k ETH in pool), **100%** of the ETH skim goes into a treasury-owned **MCFL buy-wall LP**. After the pool is deeper, the mature split resumes (most LP + a quiet MCFL buy to treasury). Other input assets still transfer to treasury as-is when unattributed.  
+Communities get a free Mini App link; seat holders see volume → cash on `/seat`.
 
 ## What to send them (example: MCFL)
 

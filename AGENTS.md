@@ -68,7 +68,7 @@ npm run server          # Express on :8787 (PORT / API_PORT)
 # Ops house view: HOUSE_VIEW_KEY (or PARTNER_INGEST_KEY) → GET /api/reach + /reach
 ```
 
-Seats (`/seat`): Round 1 **$500 × 12 seats**; Round 2 **$1k–$5k** when R1 fills / raise / volume. Path: Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M). **No partner cash** — desk 0.30% always stays treasury (LP depth). Partner upside = own buy-wall NFT (fills pay them in token, automatically). Stages are Live-field status only.
+Seats (`/seat`): Round 1 **$500 × 12 seats**; Round 2 **$1k–$5k** when R1 fills / raise / volume. Path: Seated → Ignite ($25k) → Breakout ($100k) → Pro ($500k) → Killing it ($2M). **Attributed 0.30% skim auto-transfers to the seat wallet** on each desk swap with that ref (no claim / no monthly check). Cold traffic → treasury LP. Seat NFT buy wall still theirs.
 
 Invisible house ref `poolpilot`: swaps with **no** partner ref credit natural reach. Hidden from public Live field / `/api/stats/poolpilot`. Ops-only at `/reach` (noindex) with `HOUSE_VIEW_KEY` → `GET /api/reach`. Do **not** buy a public seat for the desk — house is not a Round‑1 ticket.
 

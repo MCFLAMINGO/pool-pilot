@@ -115,6 +115,25 @@
       .catch(function () { return getRef(); });
   }
 
+  /**
+   * Resolve seat wallet for a partner ref (for auto skim on swap).
+   * Empty / house / unknown → '' (skim stays treasury).
+   */
+  function resolveSeatWallet(ref) {
+    ref = cleanRef(ref || getRef());
+    if (!ref || ref === 'poolpilot') return Promise.resolve('');
+    return fetch(apiBase() + '/api/seats?ref=' + encodeURIComponent(ref), {
+      headers: { Accept: 'application/json' },
+      mode: 'cors'
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.ok || !j.mine || !j.mine.wallet) return '';
+        return cleanWallet(j.mine.wallet);
+      })
+      .catch(function () { return ''; });
+  }
+
   function withRef(url, ref) {
     ref = cleanRef(ref || getRef());
     if (!ref) return url;
@@ -304,6 +323,7 @@
     getRef: getRef,
     captureRefFromUrl: captureRefFromUrl,
     bindRefFromWallet: bindRefFromWallet,
+    resolveSeatWallet: resolveSeatWallet,
     withRef: withRef,
     tgStartParam: tgStartParam,
     buildLinks: buildLinks,
