@@ -512,10 +512,85 @@
 
   $('checkBtn').addEventListener('click', function () { loadToken($('tokenInput').value); });
   $('tokenInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadToken($('tokenInput').value); });
-  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
-    c.addEventListener('click', function () { loadToken(c.getAttribute('data-addr')); });
-  });
+  $('tokenInput').addEventListener('input', updateTokenConfirm);
   $('refreshBtn').addEventListener('click', function () { loadState(); });
+
+  function apiBase() {
+    return (window.PoolPilotPartner && window.PoolPilotPartner.apiBase)
+      ? window.PoolPilotPartner.apiBase()
+      : location.origin;
+  }
+
+  function bindChipClicks(root) {
+    if (!root) return;
+    Array.prototype.forEach.call(root.querySelectorAll('.chip[data-addr]'), function (c) {
+      c.addEventListener('click', function () { loadToken(c.getAttribute('data-addr')); });
+    });
+  }
+
+  function updateTokenConfirm() {
+    var slot = $('tokenConfirm');
+    if (!slot || !window.PoolPilotTokens) return;
+    var t = window.PoolPilotTokens.byAddress($('tokenInput').value);
+    if (!t) {
+      slot.hidden = true;
+      slot.innerHTML = '';
+      return;
+    }
+    slot.hidden = false;
+    slot.innerHTML = window.PoolPilotTokens.confirmHtml(t);
+    var btn = slot.querySelector('[data-addr]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        loadToken(btn.getAttribute('data-addr'));
+      });
+    }
+  }
+
+  function renderTokenDirectories(paidExtra) {
+    var T = window.PoolPilotTokens;
+    if (!T) return;
+    var featuredBox = $('featuredChips');
+    var communityBox = $('communityChips');
+    if (featuredBox) {
+      featuredBox.innerHTML = T.featuredTokens(paidExtra || []).map(function (t) {
+        return T.chipHtml(t);
+      }).join('');
+      bindChipClicks(featuredBox);
+    }
+    if (communityBox) {
+      communityBox.innerHTML = T.communityTokens().map(function (t) {
+        return T.chipHtml(t);
+      }).join('');
+      bindChipClicks(communityBox);
+    }
+  }
+
+  function loadPaidListings() {
+    return fetch(apiBase() + '/api/listings', {
+      headers: { Accept: 'application/json' },
+      mode: 'cors'
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !Array.isArray(j.featured)) return [];
+        return j.featured.map(function (t) {
+          return {
+            symbol: t.symbol,
+            address: t.address,
+            featured: true,
+            paid: true
+          };
+        });
+      })
+      .catch(function () { return []; });
+  }
+
+  renderTokenDirectories([]);
+  updateTokenConfirm();
+  loadPaidListings().then(function (extra) {
+    if (extra && extra.length) renderTokenDirectories(extra);
+  });
 
   /* ---------------- render: state ---------------- */
   function verdictText(light) {

@@ -6,7 +6,7 @@
 <!-- Security: strict CSP. No inline scripts, no eval, and scripts/connections are
      limited to an explicit allow-list. Even if a hostile string ever reached the DOM,
      the browser refuses to execute it, and no data can be sent to an unlisted host. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8787 http://localhost:8787 https://rpc.mainnet.chain.robinhood.com https://api.coinbase.com https://api.geckoterminal.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Pool Pilot — Swap + liquidity for Robinhood Chain</title>
 <meta name="description" content="Swap ETH · USDG · Token on Robinhood Chain with live dollar amounts. Triangular desk for cash-settled stock tokens. Non-custodial — you sign, we never hold funds.">
@@ -85,11 +85,11 @@
       <input id="tokenInput" placeholder="Paste your token address (0x…)" spellcheck="false" autocomplete="off" data-testid="input-token">
       <button class="btn btn-primary" id="checkBtn" data-testid="button-check">Check my pool</button>
     </div>
-    <div class="chips">
-      <button class="chip" data-addr="0x21a91215fbfc4fc002b07cc87698a6fc01aed523" data-testid="chip-mcfl">MCFL</button>
-      <button class="chip" data-addr="0x020bfc650a365f8bb26819deaabf3e21291018b4" data-testid="chip-cashcat">CASHCAT</button>
-      <button class="chip" data-addr="0x521934ea44568164cd3a578e5823dba0de700880" data-testid="chip-ansem" title="The Black Bull (ANSEM)">ANSEM</button>
-    </div>
+    <div id="tokenConfirm" class="token-confirm-slot" hidden data-testid="token-confirm"></div>
+    <div class="chips" id="featuredChips" aria-label="Featured tokens" data-testid="featured-chips"></div>
+    <p class="chip-hint">Featured · easy click · <a href="/list">list yours · $500</a></p>
+    <div class="chips chips-community" id="communityChips" aria-label="Community tokens" data-testid="community-chips"></div>
+    <p class="chip-hint">Community using Pool Pilot · icons stay free</p>
     <div id="walletBanner" class="banner warn hidden" data-testid="banner-wallet"></div>
     <div id="errBanner" class="banner err hidden" data-testid="banner-error"></div>
   </section>
@@ -201,7 +201,10 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous"></script>
+<script src="js/partnerLib.js"></script>
 <script src="js/chainlib.js"></script>
+<script src="js/rhTokens.js"></script>
+<script src="js/tokenMeta.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

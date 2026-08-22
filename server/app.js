@@ -4,6 +4,7 @@ const express = require('express');
 const store = require('./store');
 const seats = require('./seats');
 const house = require('./house');
+const listings = require('./listings');
 
 function clientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -151,6 +152,29 @@ function createApp() {
         if (got !== key) return res.status(401).json({ ok: false, error: 'Unauthorized' });
       }
       const result = await seats.registerSeat(req.body || {});
+      res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/listings', async (_req, res) => {
+    try {
+      const board = await listings.getListings();
+      res.json(board);
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/listings', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key) {
+        const got = req.headers['x-partner-key'];
+        if (got !== key) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await listings.registerListing(req.body || {});
       res.status(result.deduped ? 200 : 201).json(result);
     } catch (e) {
       res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
