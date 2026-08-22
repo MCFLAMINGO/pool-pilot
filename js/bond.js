@@ -102,10 +102,17 @@
     var pct = Math.round((b.progress || 0) * 100);
     $('activeBody').innerHTML =
       '<div><strong>' + esc(b.name) + '</strong> · ' + esc(b.symbol) + ' · ' + esc(b.status) + '</div>' +
-      '<div class="mono" style="font-size:var(--text-xs);color:var(--text-muted)">/' + esc(b.id) + '</div>' +
+      '<div class="mono" style="font-size:var(--text-xs);color:var(--text-muted)">/' + esc(b.id) +
+      (b.ref ? ' · ref=' + esc(b.ref) : '') + '</div>' +
       '<div style="margin-top:8px">Raised <strong>$' + esc(b.raisedUsdg) + '</strong> / $' + esc(b.targetUsdg) + ' USDG · ' + esc(b.pledges) + ' pledges</div>' +
       '<div class="bond-bar"><span style="width:' + pct + '%"></span></div>' +
+      (b.ref
+        ? '<p class="muted" style="margin-top:10px">Share with community: <a class="mono" href="/swap?ref=' +
+          esc(b.ref) + '">/swap?ref=' + esc(b.ref) + '</a> — they see your icon after MCFL. Global frontpage needs $500 featured.</p>'
+        : '') +
       (b.superChainQueued ? '<div class="banner ok" style="margin-top:10px">Super Chain queued after graduate.</div>' : '');
+    if ($('token') && b.token && !$('token').value) $('token').value = b.token;
+    if ($('ref') && b.ref && !$('ref').value) $('ref').value = b.ref;
     var canGrad = (b.status === 'filled' || b.status === 'graduated') && S.wallet.addr &&
       S.wallet.addr.toLowerCase() === String(b.creator || '').toLowerCase();
     $('gradBtn').hidden = !(b.status === 'filled' && canGrad);
@@ -155,11 +162,15 @@
     var symbol = String($('sym').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     var target = Number($('target').value);
     var blurb = String($('blurb').value || '').trim();
+    var ref = String(($('ref') && $('ref').value) || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    var token = String(($('token') && $('token').value) || '').trim();
     if (!name || !symbol) { showErr('Name and ticker required.'); return; }
     if (!isFinite(target) || target < 5000) {
       showErr('Target at least $5,000 USDG — enough for Uniswap seed + Super Chain.');
       return;
     }
+    if (!ref) ref = symbol.toLowerCase();
+    if (P && P.getRef && P.getRef() && !$('ref').value) ref = P.getRef();
 
     var go = function () {
       if (!S.wallet.chainOk) { showErr('Switch to Robinhood Chain (4663).'); return; }
@@ -180,7 +191,9 @@
             hash: paid.hash,
             usd: CREATE_USD,
             targetUsdg: target,
-            blurb: blurb
+            blurb: blurb,
+            ref: ref,
+            token: token || undefined
           }),
           mode: 'cors'
         }).then(function (r) { return r.json(); });
@@ -242,19 +255,25 @@
   function graduate() {
     showErr('');
     if (!S.active) return;
+    var token = String(($('token') && $('token').value) || S.active.token || '').trim();
     var go = function () {
       fetch(apiBase() + '/api/bonds/' + encodeURIComponent(S.active.id) + '/graduate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ wallet: S.wallet.addr, note: 'graduate' }),
+        body: JSON.stringify({ wallet: S.wallet.addr, note: 'graduate', token: token || undefined }),
         mode: 'cors'
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (!j || !j.ok) throw new Error((j && j.error) || 'Graduate failed');
         renderActive(j.bond);
+        var ref = (j.bond && j.bond.ref) || '';
         $('execBox').classList.remove('hidden');
         $('execBox').innerHTML =
           '<strong>Graduated.</strong> Next: seed Uniswap on RH, then Super Chain is queued. ' +
-          '<a href="/">Open Pool Pilot</a> · <a href="/builders.html">Super Chain playbook</a>';
+          (ref
+            ? 'Route chip: <a href="/swap?ref=' + esc(ref) + '">/swap?ref=' + esc(ref) + '</a> (community only). '
+            : '') +
+          'Global frontpage = <a href="/start#mod-featured">$500 featured</a>. ' +
+          '<a href="/builders.html">Super Chain playbook</a>';
         return loadList();
       }).catch(function (e) { showErr((e && e.message) || e); });
     };

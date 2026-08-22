@@ -299,6 +299,7 @@ body {
   font-size: 0.65rem; color: var(--accent); margin-left: 0.1rem;
 }
 .chip-badge.community { color: var(--text-faint); }
+.chip-badge.route { color: var(--accent); }
 .token-confirm-slot {
   margin-top: var(--space-2);
 }

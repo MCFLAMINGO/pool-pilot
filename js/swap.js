@@ -2,9 +2,14 @@
 (function () {
   'use strict';
   var L = window.ChainLib;
+  var PP = window.PoolPilotPartner;
   var CFG = L.CFG;
   var read = L.getProvider();
   var $ = function (id) { return document.getElementById(id); };
+
+  function apiBase() {
+    return (PP && PP.apiBase) ? PP.apiBase() : location.origin;
+  }
 
   var S = {
     wallet: { addr: null, provider: null, chainOk: false },
@@ -331,16 +336,65 @@
     return (n / S.tokenUsd).toFixed(6);
   }
 
-  function renderTokenChips() {
+  function chipListForSwap(routeExtra) {
+    var T = window.PoolPilotTokens;
+    var all = (window.RH_TOKENS || []).filter(function (t) {
+      return (t.address || '').toLowerCase() !== CFG.USDG.toLowerCase();
+    });
+    var mcfl = all.filter(function (t) { return String(t.symbol).toUpperCase() === 'MCFL'; });
+    var rest = all.filter(function (t) { return String(t.symbol).toUpperCase() !== 'MCFL'; });
+    var route = (routeExtra || []).map(function (c) {
+      return {
+        symbol: c.symbol,
+        address: c.address,
+        iconUrl: c.iconUrl || '',
+        routeOnly: true,
+        community: true
+      };
+    });
+    var seen = Object.create(null);
+    var out = [];
+    function add(t) {
+      if (!t || !t.address) return;
+      var k = String(t.address).toLowerCase();
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(t);
+    }
+    mcfl.forEach(add);
+    route.forEach(add);
+    rest.forEach(add);
+    return out;
+  }
+
+  function loadRouteChips() {
+    var ref = PP && PP.getRef ? PP.getRef() : '';
+    if (!ref || ref === 'poolpilot') return Promise.resolve([]);
+    return fetch(apiBase() + '/api/route-chips?ref=' + encodeURIComponent(ref), {
+      headers: { Accept: 'application/json' },
+      mode: 'cors'
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !Array.isArray(j.chips)) return [];
+        return j.chips;
+      })
+      .catch(function () { return []; });
+  }
+
+  function renderTokenChips(routeExtra) {
     var box = $('tokenChips');
     if (!box) return;
     var T = window.PoolPilotTokens;
-    var list = (window.RH_TOKENS || []).filter(function (t) {
-      return (t.address || '').toLowerCase() !== CFG.USDG.toLowerCase();
-    });
+    var list = chipListForSwap(routeExtra);
     box.innerHTML = list.map(function (t) {
-      if (T && T.chipHtml) return T.chipHtml(t);
-      return '<button type="button" class="chip" data-addr="' + t.address + '" data-sym="' + esc(t.symbol) + '" data-testid="chip-' + esc(t.symbol).toLowerCase() + '">' + esc(t.symbol) + '</button>';
+      if (T && T.chipHtml) {
+        if (t.routeOnly) {
+          return T.chipHtml(t, { route: true });
+        }
+        return T.chipHtml(t);
+      }
+      return '<button type="button" class="chip" data-addr="' + t.address + '" data-sym="' + esc(t.symbol) + '">' + esc(t.symbol) + '</button>';
     }).join('');
     Array.prototype.forEach.call(box.querySelectorAll('.chip'), function (c) {
       c.addEventListener('click', function () {
@@ -701,8 +755,11 @@
   $('swapBtn').addEventListener('click', executeSwap);
 
   /* boot from query */
-  renderTokenChips();
-  if (window.PoolPilotPartner) window.PoolPilotPartner.captureRefFromUrl();
+  if (PP) PP.captureRefFromUrl();
+  renderTokenChips([]);
+  loadRouteChips().then(function (chips) {
+    if (chips && chips.length) renderTokenChips(chips);
+  });
   var q = new URLSearchParams(location.search);
   var out = q.get('out') || q.get('token') || q.get('buy');
   var inn = (q.get('in') || '').toLowerCase();

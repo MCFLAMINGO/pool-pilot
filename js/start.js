@@ -926,7 +926,7 @@
         id: 'bond',
         tag: 'Optional · Community funding',
         title: 'USDG Bond desk · $50 create',
-        why: 'Community funds the launch in USDG (raise floor $5k, default $10k — enough to seed Uniswap and move Super Chain). Everyone who pledges gets in. At target: graduate → RH book, then Super Chain OFT is queued.',
+        why: 'Community funds the launch in USDG (raise floor $5k, default $10k — enough to seed Uniswap and move Super Chain). Everyone who pledges gets in. At target: graduate → RH book, then Super Chain OFT is queued. Bonus: share ?ref= — your community sees the token after MCFL on swap; unrelated visitors do not. Global frontpage = $500 featured.',
         actions: [
           { label: 'Open Bond desk', href: '/bond' }
         ]

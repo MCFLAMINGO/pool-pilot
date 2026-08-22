@@ -7,6 +7,7 @@ const house = require('./house');
 const listings = require('./listings');
 const shepherd = require('./shepherd');
 const bonds = require('./bonds');
+const routeChips = require('./routeChips');
 
 function clientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -178,6 +179,27 @@ function createApp() {
       }
       const result = await listings.registerListing(req.body || {});
       res.status(result.deduped ? 200 : 201).json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.get('/api/route-chips', async (req, res) => {
+    try {
+      res.json(await routeChips.listRouteChips(req.query || {}));
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e && e.message) });
+    }
+  });
+
+  app.post('/api/route-chips', async (req, res) => {
+    try {
+      const key = process.env.PARTNER_INGEST_KEY;
+      if (key && req.headers['x-partner-key'] !== key) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+      const result = await routeChips.upsertRouteChip(req.body || {});
+      res.status(201).json(result);
     } catch (e) {
       res.status(e.status || 500).json({ ok: false, error: String(e && e.message) });
     }

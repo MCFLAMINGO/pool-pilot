@@ -139,11 +139,17 @@ async function main() {
 
     const graduated = await req(port, 'POST', '/api/bonds/' + bondId + '/graduate', {
       wallet: creator,
-      note: 'test-grad'
+      note: 'test-grad',
+      token: '0x5411f1681830F0Dc163818a96B8D253A78e7A6a4'
     });
     check('graduate', graduated.status === 200 && graduated.json.bond.status === 'graduated');
     check('super chain queued', graduated.json.bond.superChainQueued === true);
     check('next steps', graduated.json.next && graduated.json.next.superChain);
+    check('route chip note', graduated.json.next && graduated.json.next.routeChip);
+    check('token set', graduated.json.bond.token === '0x5411f1681830f0dc163818a96b8d253a78e7a6a4');
+
+    const chips = await req(port, 'GET', '/api/route-chips?ref=hbr');
+    check('route chip for bond ref', chips.status === 200 && chips.json.count >= 1);
   } finally {
     server.close();
     restore();

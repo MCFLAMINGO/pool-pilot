@@ -11,6 +11,8 @@
 const fs = require('fs');
 const path = require('path');
 const { ensureDataDir } = require('./dataPath');
+const { cleanRef, isHouseRef } = require('./store');
+const routeChips = require('./routeChips');
 
 const FILE_PATH = () => path.join(ensureDataDir(), 'bonds.json');
 const MAX = 300;
@@ -85,11 +87,14 @@ function raisedOf(b) {
 function publicBond(b) {
   const raised = raisedOf(b);
   const target = Number(b.targetUsdg) || 0;
+  const ref = b.ref || cleanRef(b.symbol) || b.id;
   return {
     id: b.id,
     name: b.name,
     symbol: b.symbol,
     creator: b.creator,
+    ref,
+    token: b.token || '',
     targetUsdg: target,
     raisedUsdg: Math.round(raised * 100) / 100,
     progress: target > 0 ? Math.min(1, raised / target) : 0,
@@ -98,8 +103,28 @@ function publicBond(b) {
     t: b.t,
     graduatedAt: b.graduatedAt || null,
     superChainQueued: !!b.superChainQueued,
-    blurb: b.blurb || ''
+    blurb: b.blurb || '',
+    routeChip: !!(b.token && ref && !isHouseRef(ref)),
+    routeNote:
+      'Your community sees this token after MCFL on swap when they use your ?ref=' +
+      (ref || '…') +
+      ' link. Global frontpage = $500 featured after bonding.'
   };
+}
+
+async function maybeRouteChip(b) {
+  if (!b || !b.token || !b.ref || isHouseRef(b.ref)) return null;
+  try {
+    return await routeChips.upsertRouteChip({
+      ref: b.ref,
+      address: b.token,
+      symbol: b.symbol,
+      bondId: b.id,
+      source: 'bond'
+    });
+  } catch {
+    return null;
+  }
 }
 
 async function listBonds(q) {
@@ -130,6 +155,9 @@ async function createBond(input) {
   const targetUsdg = Number(input && input.targetUsdg);
   const usd = Number(input && input.usd);
   const blurb = cleanName(input && input.blurb);
+  const token = cleanWallet(input && input.token);
+  let ref = cleanRef(input && input.ref);
+  if (!ref || isHouseRef(ref)) ref = cleanRef(symbol);
 
   if (!name || !symbol) {
     const err = new Error('Name and ticker required');
@@ -180,6 +208,8 @@ async function createBond(input) {
     hash,
     targetUsdg,
     blurb,
+    ref,
+    token: token || '',
     status: 'open',
     pledges: [],
     superChainQueued: false,
@@ -187,7 +217,14 @@ async function createBond(input) {
   };
   all.push(row);
   writeAll(all);
-  return { ok: true, deduped: false, bond: publicBond(row), createPriceUsd: CREATE_PRICE_USD };
+  const chip = await maybeRouteChip(row);
+  return {
+    ok: true,
+    deduped: false,
+    bond: publicBond(row),
+    createPriceUsd: CREATE_PRICE_USD,
+    routeChip: chip && chip.chip
+  };
 }
 
 async function pledgeBond(id, input) {
@@ -266,14 +303,24 @@ async function graduateBond(id, input) {
   b.graduatedAt = Date.now();
   b.superChainQueued = true;
   b.graduateNote = String((input && input.note) || 'graduate-uniswap+superchain').slice(0, 64);
+  const token = cleanWallet(input && input.token);
+  if (token) b.token = token;
+  if (!b.ref) b.ref = cleanRef(b.symbol) || b.id;
   all[idx] = b;
   writeAll(all);
+  const chip = await maybeRouteChip(b);
   return {
     ok: true,
     bond: publicBond(b),
+    routeChip: chip && chip.chip,
     next: {
       uniswap: 'Seed Robinhood Uniswap v3 with raised USDG + token (50/50 book).',
-      superChain: 'Super Chain OFT peers queued — Solana + Base + Robinhood after the RH book exists. Raise was sized for Uniswap seed + omni move.'
+      superChain:
+        'Super Chain OFT peers queued — Solana + Base + Robinhood after the RH book exists. Raise was sized for Uniswap seed + omni move.',
+      routeChip:
+        'Community on your ?ref=' +
+        (b.ref || '') +
+        ' link sees your token after MCFL on swap. Unrelated visitors do not. Buy $500 featured for global frontpage.'
     }
   };
 }

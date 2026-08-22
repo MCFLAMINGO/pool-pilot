@@ -71,7 +71,7 @@
     return null;
   }
 
-  function featuredTokens(extra) {
+  function featuredTokens(extra, routeExtra) {
     var map = Object.create(null);
     var out = [];
     function add(t) {
@@ -81,9 +81,20 @@
       map[k] = true;
       out.push(t);
     }
-    allTokens().forEach(function (t) {
-      if (t.featured) add(t);
+    var curated = allTokens().filter(function (t) { return t.featured; });
+    var mcfl = curated.filter(function (t) { return String(t.symbol).toUpperCase() === 'MCFL'; });
+    var otherFeat = curated.filter(function (t) { return String(t.symbol).toUpperCase() !== 'MCFL'; });
+    mcfl.forEach(add);
+    (routeExtra || []).forEach(function (c) {
+      add({
+        symbol: c.symbol,
+        address: c.address,
+        iconUrl: c.iconUrl || '',
+        routeOnly: true,
+        community: true
+      });
     });
+    otherFeat.forEach(add);
     (extra || []).forEach(add);
     return out;
   }
@@ -97,6 +108,7 @@
     var url = iconUrl(t);
     var badge = '';
     if (t.featured) badge = '<span class="chip-badge" title="Featured listing">★</span>';
+    else if (t.routeOnly || opts.route) badge = '<span class="chip-badge route" title="Your community route">◎</span>';
     else if (t.community) badge = '<span class="chip-badge community" title="Community using Pool Pilot">●</span>';
     return (
       '<button type="button" class="chip chip-icon' + (opts.active ? ' is-active' : '') + '" data-addr="' +
