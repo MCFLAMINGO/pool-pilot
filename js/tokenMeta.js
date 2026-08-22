@@ -1,4 +1,4 @@
-/* Token icons + lookup — letter-mark SVGs (CSP: img-src data:). */
+/* Token icons + lookup — real logos under /icons, letter-mark SVG fallback. */
 (function (root) {
   'use strict';
 
@@ -32,12 +32,9 @@
     return (s + '?').slice(0, 2);
   }
 
-  /** data: SVG icon — uses custom iconUrl when provided. */
-  function iconUrl(token) {
-    if (token && token.iconUrl && /^data:image\//.test(token.iconUrl)) return token.iconUrl;
-    var sym = (token && token.symbol) || '?';
-    var bg = (token && token.color) || colorFor(sym);
-    var text = letters(sym);
+  function letterMark(symbol, color) {
+    var bg = color || colorFor(symbol);
+    var text = letters(symbol);
     var svg =
       '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
       '<rect width="64" height="64" rx="16" fill="' + bg + '"/>' +
@@ -45,6 +42,18 @@
       text +
       '</text></svg>';
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+
+  /** Prefer token.icon (local path) or data: URL; else letter-mark. */
+  function iconUrl(token) {
+    if (token && token.iconUrl && /^data:image\//.test(token.iconUrl)) return token.iconUrl;
+    if (token && token.icon) {
+      var p = String(token.icon).trim();
+      if (/^data:image\//.test(p)) return p;
+      if (/^icons\/[a-z0-9._-]+\.(png|webp|jpg|jpeg|svg)$/i.test(p)) return p;
+      if (/^\/icons\/[a-z0-9._-]+\.(png|webp|jpg|jpeg|svg)$/i.test(p)) return p.slice(1);
+    }
+    return letterMark((token && token.symbol) || '?', token && token.color);
   }
 
   function allTokens() {

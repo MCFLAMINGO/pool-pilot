@@ -294,6 +294,7 @@ body {
 .chip:hover { color: var(--accent); border-color: var(--accent); }
 .chip-icon .chip-img, .token-confirm .chip-img {
   width: 20px; height: 20px; border-radius: 6px; flex: none; display: block;
+  object-fit: cover; background: #fff;
 }
 .chip-badge {
   font-size: 0.65rem; color: var(--accent); margin-left: 0.1rem;
