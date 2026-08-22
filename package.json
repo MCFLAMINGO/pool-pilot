@@ -15,6 +15,7 @@
     "test:sandwich": "node test/sandwich-sim.js",
     "test:all-fork": "node test/fork-sims.js && node test/fee-lp-sim.js && node test/sandwich-sim.js",
     "test:swap-quote": "node test/swap-quote.js",
+    "test:fee-bootstrap": "node test/fee-bootstrap.js",
     "test:partner-api": "node test/partner-api.js",
     "test:seats-api": "node test/seats-api.js",
     "test:seat-protect": "node test/seat-protect.js",

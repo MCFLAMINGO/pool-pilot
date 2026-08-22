@@ -29,10 +29,17 @@
     /** Pool Pilot swap UI — bps skimmed before the Uniswap hop (30 = 0.30%). */
     SWAP_FEE_BPS: 30,
     /**
-     * Of an ETH skim: this many bps go to treasury-owned MCFL buy-side LP;
-     * the rest quietly buys MCFL for the treasury wallet (10000 = all LP).
+     * Of an ETH skim (after bootstrap): this many bps go to treasury-owned
+     * MCFL buy-side LP; the rest quietly buys MCFL for the treasury wallet
+     * (10000 = all LP). During bootstrap, LP share is forced to 10000.
      */
     SWAP_FEE_LP_SHARE_BPS: 7000,
+    /**
+     * While MCFL/WETH buy-side depth (ETH USD in pool) is below this, 100% of
+     * the ETH skim strengthens the buy-wall LP — no quiet MCFL buy that would
+     * chew the thin sell book.
+     */
+    SWAP_FEE_BOOTSTRAP_BUY_USD: 10000,
     /** Skip LP or MCFL-buy legs below this wei (dust on tiny swaps). */
     SWAP_FEE_DUST_WEI: '1000000000000', // 1e12 ≈ 0.000001 ETH
     FEE_TIERS: [10000, 3000, 500, 100],
@@ -1002,12 +1009,30 @@
   }
 
   /**
+   * ETH skim LP share: 10000 while buy-side depth is still bootstrapping;
+   * otherwise SWAP_FEE_LP_SHARE_BPS. Pure helper for tests + planFeeSwap.
+   */
+  function resolveEthFeeLpShareBps(buySideUsd) {
+    var threshold = Number(CFG.SWAP_FEE_BOOTSTRAP_BUY_USD);
+    if (!isFinite(threshold) || threshold < 0) threshold = 10000;
+    var bootstrap = threshold > 0 && (buySideUsd == null || !isFinite(buySideUsd) || buySideUsd < threshold);
+    if (bootstrap) return { lpShareBps: 10000, bootstrap: true, buySideUsd: buySideUsd, thresholdUsd: threshold };
+    var bps = Number(CFG.SWAP_FEE_LP_SHARE_BPS);
+    if (!isFinite(bps) || bps < 0) bps = 7000;
+    if (bps > 10000) bps = 10000;
+    return { lpShareBps: bps, bootstrap: false, buySideUsd: buySideUsd, thresholdUsd: threshold };
+  }
+
+  /**
    * Fee swap — ETH | USDG | Token triangular desk.
    * Skims SWAP_FEE_BPS of amountIn before the Uniswap hop. User signs every tx.
    *
    * ETH skim (quiet, same Swap button):
-   *   1) SWAP_FEE_LP_SHARE_BPS → treasury-owned MCFL buy-side LP (ETH into the book)
-   *   2) remainder → ETH→MCFL buy to TREASURY wallet
+   *   Bootstrap (MCFL pool buy-side ETH USD < SWAP_FEE_BOOTSTRAP_BUY_USD):
+   *     100% → treasury-owned MCFL buy-wall LP (strengthen the book; no quiet buy)
+   *   After bootstrap:
+   *     1) SWAP_FEE_LP_SHARE_BPS → buy-wall LP
+   *     2) remainder → ETH→MCFL buy to TREASURY
    * Dust legs are folded into the other path; total failure falls back to ETH transfer.
    * Non-ETH skims still transfer the input asset to treasury.
    *
@@ -1061,15 +1086,23 @@
         var outIsUsdg = b.kind === 'usdg';
         var dust = ethers.BigNumber.from(CFG.SWAP_FEE_DUST_WEI);
 
-        /** Split ETH skim → buy-wall LP + quiet MCFL buy. */
+        /** Split ETH skim → buy-wall LP (+ quiet MCFL buy only after bootstrap). */
         var feeSplitP = Promise.resolve(null);
         if (inIsEth && feeAmt.gt(0)) {
-          feeSplitP = discoverPool(provider, CFG.MCFL).then(function (mcflInfo) {
+          feeSplitP = Promise.all([
+            discoverPool(provider, CFG.MCFL),
+            fetchEthUsd()
+          ]).then(function (pair) {
+            var mcflInfo = pair[0];
+            var ethUsd = pair[1];
             var pool = new ethers.Contract(mcflInfo.pool, POOL_ABI, provider);
-            return pool.slot0().then(function (s0) {
-              var lpShareBps = CFG.SWAP_FEE_LP_SHARE_BPS;
-              if (!isFinite(lpShareBps) || lpShareBps < 0) lpShareBps = 7000;
-              if (lpShareBps > 10000) lpShareBps = 10000;
+            var weth = new ethers.Contract(CFG.WETH, ERC20_ABI, provider);
+            return Promise.all([pool.slot0(), weth.balanceOf(mcflInfo.pool)]).then(function (pr) {
+              var s0 = pr[0];
+              var wethBal = parseFloat(ethers.utils.formatEther(pr[1]));
+              var buySideUsd = ethUsd != null ? wethBal * ethUsd : null;
+              var share = resolveEthFeeLpShareBps(buySideUsd);
+              var lpShareBps = share.lpShareBps;
               var lpEth = feeAmt.mul(lpShareBps).div(10000);
               var buyEth = feeAmt.sub(lpEth);
               if (lpEth.gt(0) && lpEth.lt(dust)) {
@@ -1119,7 +1152,13 @@
                   };
                 }
                 if (!feeLp && !feeBuyMcfl) return null;
-                return { feeLp: feeLp, feeBuyMcfl: feeBuyMcfl };
+                return {
+                  feeLp: feeLp,
+                  feeBuyMcfl: feeBuyMcfl,
+                  feeBootstrap: share.bootstrap,
+                  feeLpShareBps: lpShareBps,
+                  feeBuySideUsd: buySideUsd
+                };
               });
             });
           }).catch(function () { return null; });
@@ -1138,6 +1177,9 @@
             feeMcflOutF: feeBuyMcfl ? feeBuyMcfl.amountOutF : null,
             feeLpsEth: !!(feeLp && feeLp.ethIn),
             feeLpEthF: feeLp ? feeLp.ethInF : null,
+            feeBootstrap: !!(feeSplit && feeSplit.feeBootstrap),
+            feeLpShareBps: feeSplit ? feeSplit.feeLpShareBps : null,
+            feeBuySideUsd: feeSplit ? feeSplit.feeBuySideUsd : null,
             amountIn: amountIn,
             amountInF: amountInF,
             swapIn: swapIn,
@@ -1172,7 +1214,9 @@
                       feeLp.info,
                       feeLp.tick,
                       feeLp.ethIn,
-                      'Protocol fee ' + feeLp.ethInF.toFixed(6) + ' ETH → MCFL buy wall'
+                      (feeSplit && feeSplit.feeBootstrap
+                        ? 'Protocol fee ' + feeLp.ethInF.toFixed(6) + ' ETH → MCFL buy wall (bootstrap)'
+                        : 'Protocol fee ' + feeLp.ethInF.toFixed(6) + ' ETH → MCFL buy wall')
                     ));
                   }
                   if (feeBuyMcfl) {
@@ -1429,6 +1473,7 @@
     planBuyMcfl: planBuyMcfl,
     planFeeSwap: planFeeSwap,
     planSeatDeposit: planSeatDeposit,
+    resolveEthFeeLpShareBps: resolveEthFeeLpShareBps,
     buyWallTx: buyWallTx,
     sellWallTx: sellWallTx,
     treasuryBuyWallTx: treasuryBuyWallTx,

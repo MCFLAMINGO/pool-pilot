@@ -14,6 +14,7 @@ async function main() {
   console.log('in', plan.amountInF, plan.symbolIn, '→ out~', plan.amountOutF, plan.symbolOut);
   console.log('protocol fee', plan.feeF, plan.symbolIn, `(${plan.feeBps} bps)`,
     plan.feeLpsEth ? `LP ${plan.feeLpEthF} ETH` : '',
+    plan.feeBootstrap ? '(bootstrap)' : '',
     plan.feeBuysMcfl ? `→ MCFL desk ~${plan.feeMcflOutF}` : '');
   const txs = plan.buildTxs(L.CFG.TREASURY);
   console.log('steps', txs.map((t) => t.label));
@@ -21,6 +22,12 @@ async function main() {
   if (!plan.amountOut.gt(0)) throw new Error('zero out');
   if (plan.feeLpsEth) {
     if (txs[0].to.toLowerCase() !== L.CFG.NPM.toLowerCase()) throw new Error('ETH LP fee should mint via NPM');
+  }
+  // Live MCFL book is still thin — bootstrap must send 100% of ETH skim to LP.
+  if (plan.feeBootstrap) {
+    if (!plan.feeLpsEth) throw new Error('bootstrap should mint LP');
+    if (plan.feeBuysMcfl) throw new Error('bootstrap must not quiet-buy MCFL');
+    if (plan.feeLpShareBps !== 10000) throw new Error('bootstrap LP share should be 10000');
   }
   if (plan.feeBuysMcfl) {
     const buyTx = txs.find((t) => /desk/i.test(t.label));

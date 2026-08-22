@@ -22,7 +22,7 @@ Share weight = **60% capital + 40% attributed swap volume** from your links.
 Desk 0.30% skim still goes to treasury; seat = liquidity + attribution + BD seat — not an auto cash split yet.
 
 ## How you earn
-Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim is split: most goes into a treasury-owned **MCFL buy-wall LP** (ETH into the book), and the rest quietly buys **MCFL** into the treasury wallet — same Swap button, no separate steps. Other input assets still transfer to treasury as-is.  
+Every swap through the desk skims **0.30%**. When the trader pays with **ETH**, that skim strengthens the book first: while MCFL buy-side depth is still thin (< ~$10k ETH in pool), **100%** of the ETH skim goes into a treasury-owned **MCFL buy-wall LP**. After the pool is deeper, the mature split resumes (most LP + a quiet MCFL buy to treasury). Other input assets still transfer to treasury as-is.  
 Communities get a free Mini App link; you earn when they trade.
 
 ## What to send them (example: MCFL)
