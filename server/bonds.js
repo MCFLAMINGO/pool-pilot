@@ -15,6 +15,10 @@ const { ensureDataDir } = require('./dataPath');
 const FILE_PATH = () => path.join(ensureDataDir(), 'bonds.json');
 const MAX = 300;
 const CREATE_PRICE_USD = 50;
+/** Enough to seed a real RH Uniswap book and fund Super Chain OFT peers (Solana + Base + RH). */
+const MIN_TARGET_USDG = 5000;
+const DEFAULT_TARGET_USDG = 10000;
+const MAX_TARGET_USDG = 500000;
 
 function cleanWallet(raw) {
   const s = String(raw || '').trim();
@@ -104,7 +108,7 @@ async function listBonds(q) {
   if (status) rows = rows.filter((r) => r.status === status);
   const id = cleanSlug(q && q.id);
   if (id) rows = rows.filter((r) => r.id === id);
-  return { ok: true, createPriceUsd: CREATE_PRICE_USD, count: rows.length, bonds: rows };
+  return { ok: true, createPriceUsd: CREATE_PRICE_USD, minTargetUsdg: MIN_TARGET_USDG, defaultTargetUsdg: DEFAULT_TARGET_USDG, count: rows.length, bonds: rows };
 }
 
 async function getBond(id) {
@@ -115,7 +119,7 @@ async function getBond(id) {
     err.status = 404;
     throw err;
   }
-  return { ok: true, bond: publicBond(b), createPriceUsd: CREATE_PRICE_USD };
+  return { ok: true, bond: publicBond(b), createPriceUsd: CREATE_PRICE_USD, minTargetUsdg: MIN_TARGET_USDG };
 }
 
 async function createBond(input) {
@@ -142,8 +146,14 @@ async function createBond(input) {
     err.status = 400;
     throw err;
   }
-  if (!isFinite(targetUsdg) || targetUsdg < 500 || targetUsdg > 500000) {
-    const err = new Error('Target must be $500–$500,000 USDG');
+  if (!isFinite(targetUsdg) || targetUsdg < MIN_TARGET_USDG || targetUsdg > MAX_TARGET_USDG) {
+    const err = new Error(
+      'Target must be $' +
+        MIN_TARGET_USDG.toLocaleString() +
+        '–$' +
+        MAX_TARGET_USDG.toLocaleString() +
+        ' USDG (enough for Uniswap seed + Super Chain)'
+    );
     err.status = 400;
     throw err;
   }
@@ -263,13 +273,16 @@ async function graduateBond(id, input) {
     bond: publicBond(b),
     next: {
       uniswap: 'Seed Robinhood Uniswap v3 with raised USDG + token (50/50 book).',
-      superChain: 'Super Chain OFT peers queued — Solana + Base + Robinhood after the RH book exists.'
+      superChain: 'Super Chain OFT peers queued — Solana + Base + Robinhood after the RH book exists. Raise was sized for Uniswap seed + omni move.'
     }
   };
 }
 
 module.exports = {
   CREATE_PRICE_USD,
+  MIN_TARGET_USDG,
+  DEFAULT_TARGET_USDG,
+  MAX_TARGET_USDG,
   listBonds,
   getBond,
   createBond,

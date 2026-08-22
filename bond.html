@@ -37,6 +37,7 @@
     <p class="bd-kicker">Community launch · cash leg</p>
     <h2>USDG Bond desk</h2>
     <p class="bd-lead">Fund a launch in <strong>USDG</strong> so anyone can jump in before the Uniswap book. When the target fills: <strong>graduate → seed Uniswap</strong>, then <strong>Super Chain is queued</strong> (Solana + Base + Robinhood peers). Omnichain happens <em>after</em> the RH book — not mid-curve.</p>
+    <p class="muted">Raise target must be enough to move successfully on omni chain: seed the RH book <em>and</em> fund Super Chain peer wiring. Floor <strong>$5,000 USDG</strong> (serious launch). Default <strong>$10,000</strong>.</p>
     <ol class="bd-check">
       <li><strong>Create</strong> — ticker + USDG target ($50 create fee → buys MCFL)</li>
       <li><strong>Pledge</strong> — community sends USDG; desk tracks share of the raise</li>
@@ -64,8 +65,8 @@
     <input id="name" class="field-input" placeholder="Harbor" data-testid="input-bond-name">
     <label class="field-label" for="sym">Ticker</label>
     <input id="sym" class="field-input" placeholder="HBR" maxlength="16" data-testid="input-bond-symbol">
-    <label class="field-label" for="target">USDG target</label>
-    <input id="target" class="field-input" type="number" min="500" max="500000" value="5000" data-testid="input-bond-target">
+    <label class="field-label" for="target">USDG raise target (min $5,000 — Uniswap + Super Chain)</label>
+    <input id="target" class="field-input" type="number" min="5000" max="500000" value="10000" data-testid="input-bond-target">
     <label class="field-label" for="blurb">One-liner</label>
     <input id="blurb" class="field-input" placeholder="Why people should jump in" data-testid="input-bond-blurb">
     <p class="bd-lead" id="priceLine" style="margin-top:var(--space-3)">Create · <strong>$50</strong> ETH or USDG → MCFL</p>

@@ -156,7 +156,10 @@
     var target = Number($('target').value);
     var blurb = String($('blurb').value || '').trim();
     if (!name || !symbol) { showErr('Name and ticker required.'); return; }
-    if (!isFinite(target) || target < 500) { showErr('Target at least $500 USDG.'); return; }
+    if (!isFinite(target) || target < 5000) {
+      showErr('Target at least $5,000 USDG — enough for Uniswap seed + Super Chain.');
+      return;
+    }
 
     var go = function () {
       if (!S.wallet.chainOk) { showErr('Switch to Robinhood Chain (4663).'); return; }

@@ -84,13 +84,24 @@ async function main() {
     const empty = await req(port, 'GET', '/api/bonds');
     check('get empty', empty.status === 200 && empty.json && empty.json.ok && empty.json.count === 0);
     check('create price 50', empty.json && empty.json.createPriceUsd === 50);
+    check('min target 5k', empty.json && empty.json.minTargetUsdg === 5000);
+
+    const tooSmall = await req(port, 'POST', '/api/bonds', {
+      name: 'Tiny',
+      symbol: 'TINY',
+      creator,
+      hash: '0x' + '99'.repeat(32),
+      targetUsdg: 1000,
+      usd: 50
+    });
+    check('reject thin raise', tooSmall.status === 400);
 
     const bad = await req(port, 'POST', '/api/bonds', {
       name: 'Harbor',
       symbol: 'HBR',
       creator,
       hash: '0x' + '33'.repeat(32),
-      targetUsdg: 1000,
+      targetUsdg: 10000,
       usd: 10
     });
     check('reject underpay', bad.status === 400);
@@ -101,7 +112,7 @@ async function main() {
       symbol: 'HBR',
       creator,
       hash: createHash,
-      targetUsdg: 1000,
+      targetUsdg: 10000,
       usd: 50,
       blurb: 'Community launch'
     });
@@ -116,10 +127,10 @@ async function main() {
     const pledged = await req(port, 'POST', '/api/bonds/' + bondId + '/pledge', {
       wallet: pledger,
       hash: pledgeHash,
-      usdg: 1000
+      usdg: 10000
     });
     check('pledge fills', (pledged.status === 200 || pledged.status === 201) && pledged.json && pledged.json.bond.status === 'filled');
-    check('raised', pledged.json.bond.raisedUsdg === 1000);
+    check('raised', pledged.json.bond.raisedUsdg === 10000);
 
     const earlyGrad = await req(port, 'POST', '/api/bonds/' + bondId + '/graduate', {
       wallet: pledger

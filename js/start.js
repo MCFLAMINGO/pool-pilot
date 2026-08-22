@@ -926,7 +926,7 @@
         id: 'bond',
         tag: 'Optional · Community funding',
         title: 'USDG Bond desk · $50 create',
-        why: 'Let a community fund the launch in USDG and get in before the book. At target: graduate → seed Uniswap on Robinhood, then Super Chain OFT is queued (not mid-curve). Desk ledger v1 — same product story when on-chain curves land.',
+        why: 'Community funds the launch in USDG (raise floor $5k, default $10k — enough to seed Uniswap and move Super Chain). Everyone who pledges gets in. At target: graduate → RH book, then Super Chain OFT is queued.',
         actions: [
           { label: 'Open Bond desk', href: '/bond' }
         ]
