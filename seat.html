@@ -137,9 +137,22 @@
     </div>
   </section>
 
+  <section class="card" data-testid="card-seat-attr">
+    <h3>How volume gets attributed</h3>
+    <p class="bd-lead">Automatic once your links carry your <span class="mono">ref</span>. No manual spreadsheet.</p>
+    <ol class="seat-steps" data-testid="seat-attr-steps">
+      <li><span class="n">1</span><div><strong>You buy a seat</strong><span>Your wallet + ref are registered on the field</span></div></li>
+      <li><span class="n">2</span><div><strong>You share Arrive / Swap / Mini App links</strong><span>Pack builds them with <span class="mono">?ref=yours</span></span></div></li>
+      <li><span class="n">3</span><div><strong>They swap on Pool Pilot</strong><span>Swap posts a receipt to your ref — volume hits your seat</span></div></li>
+      <li><span class="n">4</span><div><strong>Connect your seat wallet</strong><span>We auto-bind your ref so your own desk swaps count too</span></div></li>
+    </ol>
+    <p class="bd-lead" id="attrLiveLine" data-testid="text-seat-attr-live" style="margin-top:var(--space-3)">Attributed ref: —</p>
+  </section>
+
   <section class="card" data-testid="card-seat-board">
-    <h3>Live field</h3>
-    <p class="bd-lead">Every seat’s volume and stage — same milestones, side by side.</p>
+    <h3>Live field — every seat</h3>
+    <p class="bd-lead">All holders, every round. Lifetime attributed volume + stage. Your lane highlights when your wallet or ref matches.</p>
+    <div id="boardMeta" class="bd-lead mono" data-testid="text-seat-board-meta" style="margin-bottom:var(--space-3)"></div>
     <div id="boardList" class="seat-board" data-testid="seat-board">Loading…</div>
   </section>
 </div>

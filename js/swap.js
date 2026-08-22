@@ -130,7 +130,38 @@
         });
       } else showBanner('');
       scheduleQuote();
+      var PP = window.PoolPilotPartner;
+      if (PP && PP.bindRefFromWallet) {
+        PP.bindRefFromWallet(S.wallet.addr).then(function () { refreshAttrBanner(); });
+      } else refreshAttrBanner();
     });
+  }
+
+  function refreshAttrBanner() {
+    var el = $('attrBanner');
+    if (!el) return;
+    var PP = window.PoolPilotPartner;
+    var ref = PP && PP.getRef ? PP.getRef() : '';
+    if (!ref) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.innerHTML =
+      'Attributing to seat <strong class="mono">' + esc(ref) +
+      '</strong> — this swap credits their Live field volume. ' +
+      '<button type="button" class="btn btn-ghost" id="clearAttrBtn" style="margin-left:8px">Clear</button>';
+    el.classList.remove('hidden');
+    var c = $('clearAttrBtn');
+    if (c) {
+      c.addEventListener('click', function () {
+        try {
+          localStorage.removeItem('pp_ref');
+          sessionStorage.removeItem('pp_ref');
+        } catch (e) { /* ignore */ }
+        refreshAttrBanner();
+      });
+    }
   }
   function connectWith(provider) {
     return provider.request({ method: 'eth_requestAccounts' }).then(function (accs) {
@@ -662,6 +693,11 @@
       ab.classList.remove('hidden');
     }
   }
+  try {
+    var PP0 = window.PoolPilotPartner;
+    if (PP0) PP0.captureRefFromUrl();
+  } catch (e) { /* ignore */ }
+  refreshAttrBanner();
   syncTokenPick();
   updateUnitBtn();
   updateWalletBtn();

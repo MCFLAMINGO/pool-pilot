@@ -177,6 +177,17 @@
   padding-right: 10px;
   border-radius: 10px;
 }
+.seat-round-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  vertical-align: middle;
+}
 .seat-lane-top {
   display: flex;
   justify-content: space-between;

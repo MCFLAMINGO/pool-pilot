@@ -370,6 +370,13 @@ function withShares(seats, volMap, monthMap, roundId) {
     .sort((a, b) => b.workUsd - a.workUsd || b.seatShare - a.seatShare);
 }
 
+/** Every seat across rounds — public Live field. Shares stay per-round. */
+function withSharesAll(seats, volMap, monthMap) {
+  const r1 = withShares(seats, volMap, monthMap, 1);
+  const r2 = withShares(seats, volMap, monthMap, 2);
+  return r1.concat(r2).sort((a, b) => b.workUsd - a.workUsd || Number(a.round) - Number(b.round));
+}
+
 async function getBoard(opts) {
   opts = opts || {};
   const seats = await loadAllSeats();
@@ -377,25 +384,35 @@ async function getBoard(opts) {
   const volMap = maps.all;
   const monthMap = maps.month;
   const roundState = computeRoundState(seats, volMap);
-  const roundId = opts.round != null ? Number(opts.round) : roundState.activeRound;
-  const board = withShares(seats, volMap, monthMap, roundId);
+  const wantRound = opts.round;
+  let board;
+  if (wantRound === 'all' || wantRound == null || wantRound === '' || String(wantRound).toLowerCase() === 'all') {
+    board = withSharesAll(seats, volMap, monthMap);
+  } else {
+    board = withShares(seats, volMap, monthMap, Number(wantRound));
+  }
+  const roundBoard = withShares(seats, volMap, monthMap, roundState.activeRound);
   let mine = null;
   const ref = eventsStore.cleanRef(opts.ref || '');
   const wallet = cleanWallet(opts.wallet || '');
   if (ref || wallet) {
     mine =
       board.find((s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)) ||
-      withShares(seats, volMap, monthMap, 1).find(
-        (s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)
-      ) ||
-      withShares(seats, volMap, monthMap, 2).find(
+      withSharesAll(seats, volMap, monthMap).find(
         (s) => (ref && s.ref === ref) || (wallet && s.wallet === wallet)
       ) ||
       null;
   }
+  const byRound = { 1: 0, 2: 0 };
+  seats.forEach((s) => {
+    const r = Number(s.round) === 2 ? 2 : 1;
+    byRound[r] += 1;
+  });
   return {
     ok: true,
     ...roundState,
+    seatsTakenAll: seats.length,
+    seatsByRound: byRound,
     stages: STAGES,
     skimBps: SKIM_BPS,
     incentivePool: INCENTIVE_POOL,
@@ -409,7 +426,13 @@ async function getBoard(opts) {
         s.monthlyBonusUsd + (s.volumeUsd * SKIM_BPS) / 10000
     })),
     board,
+    roundBoard,
     mine,
+    attribution: {
+      how: 'Swaps through Pool Pilot with ?ref= (or sticky pp_ref) POST to /api/events and credit that seat ref.',
+      autoBindWallet: true,
+      skimBps: SKIM_BPS
+    },
     store: usePostgres() ? 'postgres' : 'file'
   };
 }
